@@ -1,24 +1,28 @@
 # ESP32-PsRamFS
 
+
+![](extras/logo.jpeg)
+
+
 Coding Horror
 -------------
 
-This is a very early version of ESP32-PsRamFS: a wannabee RamDisk library.
+This is a very early version of ESP32-PsRamFS: a wannabee RamDisk library for Arduino-ESP32.
 
-It provides a fs::FS style filesystem using the available psram.
+It provides a `fs::FS` style filesystem using the psram of a ESP32-Wrover or any ESP32 equipped with PsRam.
 
-At the time of committing the code, only basic tests have been performed, few
-things are still unimplemented (directory support is ... meh) and the API is
-still under development.
+At the time of committing the code, only basic tests have been performed, few things are still unimplemented (directory support is ... meh) and the API is still under development.
 
 
-Hardware Requirements
---------
+Hardware Requirements:
+---------------------
 
-ESP32 with psram
+- ESP32 with psram
+
 
 
 Credits:
+--------
 
 - [espressif](https://github.com/espressif)
 - [Ivan Grokhotkov](https://github.com/igrr)
