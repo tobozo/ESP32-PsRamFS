@@ -77,7 +77,7 @@ namespace fs
       virtual int         read(); // ?
       size_t      read(uint8_t* buf, size_t size); // ?
       size_t      readBytes(char *buffer, size_t length); // ?
-      bool        available(); // ?
+      //bool        available(); // ?
       void        flush();
       bool        seek(uint32_t pos, SeekMode mode);
       size_t      position() const;

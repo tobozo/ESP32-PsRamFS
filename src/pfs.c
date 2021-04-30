@@ -1,5 +1,29 @@
+/*\
 
-//#include "pfs.h"
+  MIT License
+
+  Copyright (c) 2021-now tobozo
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+\*/
+
 #include <string.h>
 
 // from dirent.h
@@ -108,7 +132,7 @@ int pfs_next_file_avail()
   if( pfs_files != NULL ) {
     for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
       if( pfs_files[i]->name == NULL ) {
-        log_d("File Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
+        log_v("File Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
         return i;
       }
     }
@@ -125,7 +149,7 @@ int pfs_next_dir_avail()
   if( pfs_dirs != NULL ) {
     for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
       if( pfs_dirs[i]->name == NULL ) {
-        log_d("Dir Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
+        log_v("Dir Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
         return i;
       }
     }
@@ -202,7 +226,7 @@ int pfs_stat( const char * path, const void *_stat )
 PSRAMFILE* pfs_fopen( const char * path, const char* mode )
 {
 
-  if( path == NULL /*|| strlen(path) == 0 || strlen(path) > 255*/ ) {
+  if( path == NULL ) {
     log_e("Invalid path");
     return NULL;
   } else {
@@ -254,12 +278,7 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
     memcpy( pfs_files[fileslot]->name, path, pathlen+1 );
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size  = 0;
-    /*
-    if( mode && (mode[0] == 'a' || mode[1] == '+' ) ) {
-      if( pfs_files[fileslot]->size > 0 ) {
-        pfs_files[fileslot]->index = pfs_files[fileslot]->size - 1;
-      }
-    }*/
+
     log_d( "file created: %s (mode %s)", path, mode);
     return pfs_files[fileslot];
   }
@@ -318,7 +337,7 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * st
 int pfs_fflush(PSRAMFILE * stream)
 {
   return 0;
-} // ? return 0 if unsure, otherwise EOF as error
+}
 
 
 int pfs_fseek( PSRAMFILE * stream, long offset, SeekMode mode )
@@ -345,14 +364,14 @@ int pfs_fseek( PSRAMFILE * stream, long offset, SeekMode mode )
       break;
   }
   return 0;
-} // set position, 0 = success, -1 = error
+}
 
 
 size_t pfs_ftell( PSRAMFILE * stream )
 {
   log_d("Getting cursor for %s = %d", stream->name, stream->index+1);
   return stream->index+1;
-} // get position
+}
 
 
 void pfs_fclose( PSRAMFILE * stream )
@@ -364,7 +383,7 @@ void pfs_fclose( PSRAMFILE * stream )
   }
   stream->index = 0;
   return;
-} // also save file stat
+}
 
 
 int pfs_unlink( char * path )
@@ -380,8 +399,6 @@ int pfs_unlink( char * path )
     pfs_files[file_id]->size = 0;
     pfs_files[file_id]->memsize = 0;
     pfs_files[file_id]->index = 0;
-    //free( pfs_files[file_id] );
-    //pfs_files[file_id] = NULL;
     log_w("Path %s unlinked successfully", path);
     return 0;
   }

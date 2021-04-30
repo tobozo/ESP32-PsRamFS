@@ -55,7 +55,7 @@ FileImplPtr PSRamFSImpl::open(const char* path, const char* mode)
     // file exists
     free(temp);
     if ( st.st_mode == DT_REG || st.st_mode == DT_DIR ) {
-      log_d("new PSRamFSFileImpl from existing file %s ", path );
+      log_v("new PSRamFSFileImpl from existing file %s ", path );
       return std::make_shared<PSRamFSFileImpl>(this, path, mode);
     }
     log_e("new FileImplPtr from %s wrong mode 0x%08X", path, st.st_mode);
@@ -65,7 +65,7 @@ FileImplPtr PSRamFSImpl::open(const char* path, const char* mode)
   //file not found but mode permits creation
   if(mode && mode[0] != 'r') {
     free(temp);
-    log_d("new PSRamFSFileImpl from unexisting file %s ", path );
+    log_v("new PSRamFSFileImpl from unexisting file %s ", path );
     return std::make_shared<PSRamFSFileImpl>(this, path, mode);
   }
 
@@ -74,7 +74,7 @@ FileImplPtr PSRamFSImpl::open(const char* path, const char* mode)
   if(d) {
     pfs_closedir(d);
     free(temp);
-    log_d("new PSRamFSFileImpl from mount point %s ", path );
+    log_v("new PSRamFSFileImpl from mount point %s ", path );
     return std::make_shared<PSRamFSFileImpl>(this, path, mode);
   }
   log_e("new FileImplPtr from %s file not found error", temp);
@@ -283,10 +283,10 @@ PSRamFSFileImpl::PSRamFSFileImpl(PSRamFSImpl* fs, const char* path, const char* 
       _d = pfs_opendir(temp);
       if(_d != NULL) {
         _isDirectory = true;
-        log_d("pfs_opendir(%s) == directory", temp);
+        log_v("pfs_opendir(%s) == directory", temp);
       } else {
         _isDirectory = false;
-        log_w("pfs_opendir(%s) failed", temp);
+        log_v("pfs_opendir(%s) : not a directory", temp);
       }
     } else {
       //lets create this new file
@@ -381,22 +381,22 @@ size_t PSRamFSFileImpl::readBytes(char *buffer, size_t length)
   return read((uint8_t*)buffer, length);
 }
 
-
+/*
 bool PSRamFSFileImpl::available()
 {
-  log_e("Availability check");
+  log_v("Availability check");
   if( !_f ) {
     return false;
   }
   if( _f->index >= _f->size -1 ) return false;
   return true;
 }
-
+*/
 
 
 int PSRamFSFileImpl::read()
 {
-  log_w("Reading 1 byte");
+  log_v("Reading 1 byte");
   uint8_t buf[2] = {0,0};
   if( read( buf, 1 ) == 1 ) {
     return buf[0];
@@ -408,7 +408,7 @@ int PSRamFSFileImpl::read()
 bool PSRamFSFileImpl::print(const char* str)
 {
   if( write( (const uint8_t*)str, strlen(str) ) > 0 ) {
-    log_d("Written %d bytes: %s", strlen(str), str );
+    log_v("Written %d bytes: %s", strlen(str), str );
     return true;
   }
   return false;
