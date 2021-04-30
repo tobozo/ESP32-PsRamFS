@@ -37,7 +37,7 @@
 #define ps_malloc(p)    heap_caps_malloc(p, MALLOC_CAP_SPIRAM)
 #define ps_realloc(p,s) heap_caps_realloc(p, s, MALLOC_CAP_SPIRAM)
 #define ps_calloc(p, s) heap_caps_calloc(p, s, MALLOC_CAP_SPIRAM)
-#define ALLOC_BLOCK_SIZE 4094
+#define ALLOC_BLOCK_SIZE 4096
 #define MAX_PSRAM_FILES 256
 
 typedef enum {
@@ -298,11 +298,11 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream )
   }
   memcpy( buf, &stream->bytes[stream->index], to_read );
   if( to_read > 1 ) {
-    log_d("Reading %d byte(s) at index %d of %d", to_read, stream->index, stream->size );
+    log_v("Reading %d byte(s) at index %d of %d", to_read, stream->index, stream->size );
   } else {
     char out[2] = {0,0};
     out[0] = buf[0];
-    log_d("Reading %d byte(s) at index %d of %d (%s)", to_read, stream->index, stream->size, out );
+    log_v("Reading %d byte(s) at index %d of %d (%s)", to_read, stream->index, stream->size, out );
   }
   stream->index += to_read;
   return to_read;
@@ -312,20 +312,20 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream )
 size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream)
 {
   size_t to_write = size*count;
-  if( ( stream->index + to_write ) > stream->memsize ) {
+  if( stream->index + to_write > stream->memsize ) {
     if( stream->bytes == NULL ) {
       log_d("Allocating %d bytes to write %d bytes", ALLOC_BLOCK_SIZE, to_write );
       stream->bytes = (char*)ps_malloc( ALLOC_BLOCK_SIZE /*, sizeof(char) */);
       stream->memsize = ALLOC_BLOCK_SIZE;
-    } else {
-      // realloc
-      log_d("Reallocating %d bytes to write %d bytes at index %d/%d => %d", ALLOC_BLOCK_SIZE, to_write, stream->index, stream->size, stream->index + ALLOC_BLOCK_SIZE );
-      log_d("stream->bytes = (char*)realloc( %d, %d );", stream->bytes, stream->index + ALLOC_BLOCK_SIZE );
-      stream->bytes = (char*)ps_realloc( stream->bytes, stream->memsize + ALLOC_BLOCK_SIZE );
+    }
+    while( stream->index + to_write > stream->memsize ) {
+      log_d("Reallocating %d bytes to write %d bytes at index %d/%d => %d", ALLOC_BLOCK_SIZE, to_write, stream->index, stream->size, stream->index + ALLOC_BLOCK_SIZE  );
+      log_d("stream->bytes = (char*)realloc( %d, %d );", stream->bytes, stream->index + ALLOC_BLOCK_SIZE  );
+      stream->bytes = (char*)ps_realloc( stream->bytes, stream->memsize + ALLOC_BLOCK_SIZE  );
       stream->memsize += ALLOC_BLOCK_SIZE;
     }
   } else {
-    log_d("Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
+    log_v("Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
   }
   memcpy( &stream->bytes[stream->index], buf, to_write );
   stream->index += to_write;
