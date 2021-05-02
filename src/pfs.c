@@ -41,10 +41,10 @@
 #define MAX_PSRAM_FILES 256
 
 typedef enum {
-  SeekSet = 0,
-  SeekCur = 1,
-  SeekEnd = 2
-} SeekMode;
+  pfs_seek_set = 0,
+  pfs_seek_cur = 1,
+  pfs_seek_end = 2
+} pfs_seek_mode;
 
 
 typedef struct
@@ -69,7 +69,7 @@ typedef struct
   unsigned long st_mtime;
   unsigned long st_size;
   const char* st_name;
-} psramStat_t;
+} pfs_stat_t;
 
 
 PSRAMFILE ** pfs_files;
@@ -195,7 +195,7 @@ int pfs_find_dir( const char* path )
 
 int pfs_stat( const char * path, const void *_stat )
 {
-  psramStat_t* stat_ = (psramStat_t*)_stat;
+  pfs_stat_t* stat_ = (pfs_stat_t*)_stat;
   stat_->st_mode = DT_UNKNOWN;
 
   int file_id = pfs_find_file( path );
@@ -340,23 +340,23 @@ int pfs_fflush(PSRAMFILE * stream)
 }
 
 
-int pfs_fseek( PSRAMFILE * stream, long offset, SeekMode mode )
+int pfs_fseek( PSRAMFILE * stream, long offset, pfs_seek_mode mode )
 {
   log_v("Seeking mode #%s with offset %d", mode, offset );
   switch( mode ) {
-    case SeekSet:
+    case pfs_seek_set:
       if( offset < stream->size ) {
         stream->index = offset;
         break;
       }
       return -1;
-    case SeekCur:
+    case pfs_seek_cur:
       if( stream->index + offset < stream->size ) {
         stream->index += offset;
         break;
       }
       return -1;
-    case SeekEnd:
+    case pfs_seek_end:
       if( (stream->size-1) - offset > stream->size ) {
         stream->index = (stream->size-1) - offset;
       }

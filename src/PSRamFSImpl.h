@@ -29,9 +29,7 @@
 
 #include "FS.h"
 #include "FSImpl.h"
-extern "C" {
 #include "pfs.h"
-}
 
 
 namespace fs
@@ -64,7 +62,7 @@ namespace fs
       PSRAMDIR *                 _d;
       char *                     _path;
       bool                       _isDirectory;
-      mutable struct psramStat_t _stat;
+      mutable struct pfs_stat_t  _stat;
       mutable bool               _written;
 
       void _getStat() const;

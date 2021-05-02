@@ -27,6 +27,11 @@
 #ifndef _PFS_H_
 #define _PFS_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 struct PSRAMFILE
 {
   char * name;
@@ -41,7 +46,7 @@ struct PSRAMDIR
   char * name = NULL;
 };
 
-struct psramStat_t
+struct pfs_stat_t
 {
   uint8_t  st_mode;
   uint32_t st_mtime;
@@ -80,6 +85,8 @@ struct dirent * pfs_readdir( PSRAMDIR * dir );
 void pfs_closedir( PSRAMDIR * dir );
 void pfs_rewinddir( PSRAMDIR * dir );
 
-
+#ifdef __cplusplus
+}
+#endif
 
 #endif

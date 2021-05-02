@@ -28,5 +28,7 @@ Credits:
 - [Ivan Grokhotkov](https://github.com/igrr)
 - [Bill Greiman](https://github.com/greiman/RamDisk)
 - [lorolol](https://github.com/lorol)
+- [sharandac](https://github.com/sharandac)
+- [lbernstone](https://github.com/lbernstone)
 
 

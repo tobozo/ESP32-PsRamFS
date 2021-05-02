@@ -49,7 +49,7 @@ FileImplPtr PSRamFSImpl::open(const char* path, const char* mode)
 
   sprintf(temp,"%s%s", _mountpoint, path);
 
-  struct psramStat_t st;
+  struct pfs_stat_t st;
 
   if(!pfs_stat(temp, &st)) {
     // file exists
