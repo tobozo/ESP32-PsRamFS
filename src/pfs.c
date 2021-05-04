@@ -538,9 +538,9 @@ int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
     case pfs_seek_end:
       if( (stream->size-1) - offset > stream->size ) {
         stream->index = (stream->size-1) - offset;
+        break;
       }
       return -1;
-      break;
   }
   return 0;
 }
@@ -760,7 +760,7 @@ static int vfs_pfs_close(int fd)
 {
   if( pfs_files[fd] == NULL ) return -1;
   pfs_fclose( pfs_files[fd] );
-  return fd;
+  return 0;
 }
 
 static int vfs_pfs_fsync(int fd)
@@ -788,9 +788,9 @@ static off_t vfs_pfs_lseek(int fd, off_t offset, int mode)
 {
 
   if( pfs_files[fd] == NULL ) return -1;
-  int res = pfs_fseek( pfs_files[fd], offset, mode );
-  if( res == 0 ) return -1;
-  return 0;
+  if ( pfs_fseek( pfs_files[fd], offset, mode ) == 0 )
+     return offset;
+  return -1;
 }
 
 static int vfs_pfs_unlink(const char *path)
