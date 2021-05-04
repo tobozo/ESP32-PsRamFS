@@ -46,8 +46,13 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
   }
 
   if (!psramInit() ){
-    log_e("No psram found");
-    return false;
+    log_w("No psram found, using heap");
+    pfs_set_psram( false );
+    pfs_set_partition_size( 100*1024 /*0.25 * ESP.getFreeHeap()*/ );
+    //partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreeHeap();
+  } else {
+    pfs_set_partition_size( FPSRAM_PARTITION_SIZE * ESP.getFreePsram() );
+    //partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreePsram();
   }
 
   esp_vfs_pfs_conf_t conf = {
@@ -58,24 +63,22 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
 
   esp_err_t err = esp_vfs_pfs_register(&conf);
   if(err == ESP_FAIL && formatOnFail){
-      if(format()){
-          err = esp_vfs_pfs_register(&conf);
-      }
+    if(format()){
+      err = esp_vfs_pfs_register(&conf);
+    }
   }
   if(err != ESP_OK){
-      log_e("Mounting PSRAMFS failed! Error: %d", err);
-      return false;
+    log_e("Mounting PSRAMFS failed! Error: %d", err);
+    return false;
   }
 
-  partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreePsram();
-
-  if( partitionSize == 0 ) {
-    log_e("Not enough psram free");
+  if( totalBytes() == 0 ) {
+    log_e("Not enough memory free");
     return false;
   }
 
   _impl->mountpoint(basePath);
-  log_d("Successfully set partition size at %d bytes for mount point %s", partitionSize, basePath );
+  log_d("Successfully set partition size at %d bytes for mount point %s", totalBytes(), basePath );
   return true;
 }
 
@@ -100,43 +103,33 @@ bool F_PSRam::format(bool full_wipe, char* partitionLabel)
 
 size_t F_PSRam::totalBytes()
 {
-  return partitionSize;
+  return pfs_get_partition_size();
+  //return partitionSize;
 }
+
 
 void ** F_PSRam::getFiles()
 {
   return (void**)pfs_get_files();
 }
 
+
 size_t F_PSRam::usedBytes()
 {
-  size_t slotscount = pfs_max_items();
-  size_t totalsize = 0;
-  pfs_file_t** pfs_files = pfs_get_files();
-  if( pfs_files != NULL ) {
-    for( int i=0; i<slotscount; i++ ) {
-      if( pfs_files[i]->name != NULL ) {
-        totalsize += pfs_files[i]->size;
-      }
-    }
-  }
-  return totalsize;
+  return pfs_used_bytes();
 }
 
 
 
 size_t F_PSRam::freeBytes()
 {
-  return partitionSize - usedBytes();
+  return totalBytes() - usedBytes();
 }
 
 
 
 bool F_PSRam::exists(const char* path)
 {
-
-  //pfs_file_t* f = pfs_fopen(path, "r");
-  //return f!=NULL;
   File f = open(path, "r");
   return (f == true) && !f.isDirectory();
 }
