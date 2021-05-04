@@ -81,6 +81,9 @@ typedef enum {
 pfs_file_t ** pfs_get_files();
 pfs_dir_t  ** pfs_get_dirs();
 int         pfs_get_max_items();
+void        pfs_set_max_items(size_t max_items);
+int         pfs_get_block_size();
+void        pfs_set_block_size(size_t block_size);
 void        pfs_free();
 void        pfs_clean_files();
 int         pfs_stat( const char * path, const void *_stat );

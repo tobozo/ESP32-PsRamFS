@@ -89,6 +89,10 @@ size_t pfs_partition_size = 0;
 pfs_file_t ** pfs_get_files();
 pfs_dir_t  ** pfs_get_dirs();
 int         pfs_get_max_items();
+void        pfs_set_max_items(size_t max_items);
+int         pfs_get_block_size();
+void        pfs_set_block_size(size_t block_size);
+
 void        pfs_init_files();
 void        pfs_init_dirs();
 int         pfs_next_file_avail();
@@ -119,6 +123,11 @@ size_t      pfs_get_partition_size();
 void        pfs_set_psram( bool use );
 bool        pfs_get_psram();
 size_t      pfs_used_bytes();
+
+
+
+
+
 
 
 static char pfs_flag[3] = {0,0,0};
@@ -152,6 +161,23 @@ int pfs_get_max_items()
   return pfs_max_items;
 }
 
+void pfs_set_max_items(size_t max_items)
+{
+  pfs_max_items = max_items;
+}
+
+
+int pfs_get_block_size()
+{
+  return pfs_alloc_block_size;
+}
+
+
+void pfs_set_block_size(size_t block_size)
+{
+  pfs_alloc_block_size = block_size;
+}
+
 
 void pfs_set_psram( bool use )
 {
@@ -162,16 +188,16 @@ void pfs_set_psram( bool use )
       pfs_realloc   = p_realloc;
       pfs_calloc    = p_calloc;
       pfs_free_mem  = p_free;
-      pfs_max_items = 256;
-      pfs_alloc_block_size = 4096;
+      pfs_set_max_items( 256 );
+      pfs_set_block_size( 4096 );
       log_d("pfs will use psram");
     } else {
       pfs_malloc    = i_malloc;
       pfs_realloc   = i_realloc;
       pfs_calloc    = i_calloc;
       pfs_free_mem  = i_free;
-      pfs_max_items = 16;
-      pfs_alloc_block_size = 512;
+      pfs_set_max_items( 16 );
+      pfs_set_block_size( 512 );
       log_d("pfs will use heap by config");
     }
   #else
@@ -180,11 +206,13 @@ void pfs_set_psram( bool use )
     pfs_realloc   = i_realloc;
     pfs_calloc    = i_calloc;
     pfs_free_mem  = i_free;
-    pfs_max_items = 16;
-    pfs_alloc_block_size = 512;
+    pfs_set_max_items( 16 );
+    pfs_set_block_size( 512 );
     log_d("pfs will use heap");
   #endif
 }
+
+
 
 bool pfs_get_psram()
 {
