@@ -24,6 +24,7 @@
 
 \*/
 
+#include "dirent.h"
 #include "PSRamFSImpl.h"
 
 
@@ -381,17 +382,6 @@ size_t PSRamFSFileImpl::readBytes(char *buffer, size_t length)
   return read((uint8_t*)buffer, length);
 }
 
-/*
-bool PSRamFSFileImpl::available()
-{
-  log_v("Availability check");
-  if( !_f ) {
-    return false;
-  }
-  if( _f->index >= _f->size -1 ) return false;
-  return true;
-}
-*/
 
 
 int PSRamFSFileImpl::read()
@@ -431,7 +421,7 @@ bool PSRamFSFileImpl::seek(uint32_t pos, SeekMode mode)
   if(_isDirectory || !_f) {
     return false;
   }
-  auto rc = pfs_fseek(_f, pos, mode);
+  auto rc = pfs_fseek(_f, pos, (pfs_seek_mode)mode);
   return rc == 0;
 }
 
@@ -492,6 +482,7 @@ FileImplPtr PSRamFSFileImpl::openNextFile(const char* mode)
 
   return std::make_shared<PSRamFSFileImpl>(_fs, name.c_str(), mode);
 }
+
 
 void PSRamFSFileImpl::rewindDirectory(void)
 {

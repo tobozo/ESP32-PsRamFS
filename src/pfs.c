@@ -24,15 +24,33 @@
 
 \*/
 
-#include <string.h>
 
-// from dirent.h
-#define DT_UNKNOWN  0
-#define DT_REG      1
-#define DT_DIR      2
+#if __has_include("esp_arduino_version.h")
+#include "esp_arduino_version.h"
+#endif
+
+#if __has_include("esp_idf_version.h")
+#include "esp_idf_version.h"
+#endif
+
+#include "esp_log.h"
+
+
+#include "freertos/FreeRTOS.h"
+//#include "freertos/task.h"
+//#include "freertos/semphr.h"
+#include <unistd.h>
+#include <dirent.h>
+#include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/lock.h>
+#include <sys/param.h>
+
+#include <string.h>
 
 #include "esp_heap_caps.h"
 #include "esp32-hal-log.h"
+
 #define realloc(p,s)    heap_caps_realloc(p, s, MALLOC_CAP_8BIT)
 #define ps_malloc(p)    heap_caps_malloc(p, MALLOC_CAP_SPIRAM)
 #define ps_realloc(p,s) heap_caps_realloc(p, s, MALLOC_CAP_SPIRAM)
@@ -40,44 +58,66 @@
 #define ALLOC_BLOCK_SIZE 4096
 #define MAX_PSRAM_FILES 256
 
-typedef enum {
-  pfs_seek_set = 0,
-  pfs_seek_cur = 1,
-  pfs_seek_end = 2
-} pfs_seek_mode;
+#include "pfs.h"
+#include "esp_vfs.h"
 
-
-typedef struct
-{
-  char * name;
-  char * bytes;
-  unsigned long size;
-  unsigned long memsize;
-  unsigned long index;
-} PSRAMFILE;
-
-
-typedef struct
-{
-  char * name;
-} PSRAMDIR;
-
-
-typedef struct
-{
-  unsigned int st_mode;
-  unsigned long st_mtime;
-  unsigned long st_size;
-  const char* st_name;
-} pfs_stat_t;
-
+static const char TAG[] = "esp_psramfs";
 
 PSRAMFILE ** pfs_files;
 PSRAMDIR  ** pfs_dirs;
 
-
 int pfs_files_set = -1;
 int pfs_dirs_set = -1;
+
+PSRAMFILE ** pfs_get_files();
+PSRAMDIR  ** pfs_get_dirs();
+int        pfs_max_items();
+void       pfs_init_files();
+void       pfs_init_dirs();
+int        pfs_next_file_avail();
+int        pfs_next_dir_avail();
+int        pfs_find_file( const char* path );
+int        pfs_find_dir( const char* path );
+int        pfs_stat( const char * path, const void *_stat );
+PSRAMFILE* pfs_fopen( const char * path, const char* mode );
+size_t     pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream );
+size_t     pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream);
+int        pfs_fflush(PSRAMFILE * stream);
+int        pfs_fseek( PSRAMFILE * stream, long offset, pfs_seek_mode mode );
+size_t     pfs_ftell( PSRAMFILE * stream );
+void       pfs_fclose( PSRAMFILE * stream );
+int        pfs_unlink( const char * path );
+void       pfs_free();
+void       pfs_clean_files();
+int        pfs_rename( const char * from, const char * to );
+PSRAMDIR*  pfs_opendir( const char * path );
+int        pfs_mkdir( const char* path );
+int        pfs_rmdir( const char* path );
+struct dirent * pfs_readdir( PSRAMDIR * dir );
+void       pfs_closedir( PSRAMDIR * dir );
+void       pfs_rewinddir( PSRAMDIR * dir );
+
+static char pfs_flag[3] = {0,0,0};
+char *pfs_flags_conv(int m);
+
+static int     vfs_pfs_fopen( const char * path, int flags, int mode );
+static ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
+static ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
+static int     vfs_pfs_close(int fd);
+static int     vfs_pfs_fsync(int fd);
+static int     vfs_pfs_stat( const char * path, struct stat * st);
+static off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
+static int     vfs_pfs_unlink(const char *path);
+static int     vfs_pfs_rename( const char *src, const char *dst);
+static int     vfs_pfs_rmdir(const char* name);
+static int     vfs_pfs_mkdir(const char* name, mode_t mode);
+static DIR*    vfs_pfs_opendir(const char* name);
+static struct dirent* vfs_pfs_readdir(DIR* pdir);
+static int     vfs_pfs_closedir(DIR* pdir);
+
+esp_err_t  esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
+
+
 
 
 PSRAMFILE ** pfs_get_files() { return pfs_files; }
@@ -87,7 +127,6 @@ int pfs_max_items()
 {
   return MAX_PSRAM_FILES;
 }
-
 
 
 void pfs_init_files()
@@ -136,9 +175,10 @@ int pfs_next_file_avail()
         return i;
       }
     }
+    log_e("Too many files created.");
+  } else {
+    log_e("No allocated space for files");
   }
-  log_e("Too many files created, halting");
-  while(1);
   return res;
 }
 
@@ -195,7 +235,8 @@ int pfs_find_dir( const char* path )
 
 int pfs_stat( const char * path, const void *_stat )
 {
-  pfs_stat_t* stat_ = (pfs_stat_t*)_stat;
+  struct pfs_stat_t* stat_;
+  stat_ = (pfs_stat_t*)_stat;
   stat_->st_mode = DT_UNKNOWN;
 
   int file_id = pfs_find_file( path );
@@ -222,7 +263,6 @@ int pfs_stat( const char * path, const void *_stat )
 }
 
 
-
 PSRAMFILE* pfs_fopen( const char * path, const char* mode )
 {
 
@@ -232,7 +272,6 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
   } else {
     log_v("valid path :%s", path );
   }
-  int pathlen = strlen(path);
 
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
@@ -266,7 +305,7 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
     int slotscount = 0;
     int fileslot = pfs_next_file_avail();
 
-    if( pfs_files[fileslot] == NULL ) {
+    if( fileslot < 0 || pfs_files[fileslot] == NULL ) {
       log_e("alloc fail!");
       return NULL;
     }
@@ -274,10 +313,12 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
       log_e("Name from file slot #%d is now null, freeing", fileslot);
       free( pfs_files[fileslot]->name );
     }
+    int pathlen = strlen(path);
     pfs_files[fileslot]->name = (char*)ps_malloc( pathlen+1 );
     memcpy( pfs_files[fileslot]->name, path, pathlen+1 );
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size  = 0;
+    pfs_files[fileslot]->file_id = fileslot;
 
     log_d( "file created: %s (mode %s)", path, mode);
     return pfs_files[fileslot];
@@ -285,8 +326,6 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
   log_e("can't open: %s (mode %s)", path, mode);
   return NULL;
 }
-
-
 
 
 size_t pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream )
@@ -386,7 +425,7 @@ void pfs_fclose( PSRAMFILE * stream )
 }
 
 
-int pfs_unlink( char * path )
+int pfs_unlink( const char * path )
 {
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
@@ -429,7 +468,7 @@ void pfs_clean_files()
 }
 
 
-int pfs_rename( char * from, char * to )
+int pfs_rename( const char * from, const char * to )
 {
   int file_id = pfs_find_file( to );
   if( file_id > -1 ) {
@@ -457,12 +496,11 @@ int pfs_rename( char * from, char * to )
     return 0;
   }
 
-  return 1;
+  return -1;
 }
 
 
-
-PSRAMDIR* pfs_opendir( char * path )
+PSRAMDIR* pfs_opendir( const char * path )
 {
 
   int file_id = pfs_find_file( path );
@@ -481,7 +519,7 @@ PSRAMDIR* pfs_opendir( char * path )
 }
 
 
-int pfs_mkdir( char* path )
+int pfs_mkdir( const char* path )
 {
   int dir_id = pfs_find_dir( path );
   if( dir_id > -1 ) {
@@ -492,25 +530,36 @@ int pfs_mkdir( char* path )
   int slotscount = 0;
   int dirslot = pfs_next_dir_avail();
   pfs_dirs[dirslot]->name = (char*)ps_calloc(1, sizeof( path ) +1 );
+  pfs_dirs[dirslot]->dir_id = dirslot;
   memcpy( pfs_dirs[dirslot]->name, path, sizeof( path ) +1 );
   if( pfs_dirs[dirslot] != NULL ) {
     return 0;
   }
   return 1;
+}
 
+
+int pfs_rmdir( const char* path )
+{
+  int dir_id = pfs_find_dir( path );
+  if( dir_id < 0 ) {
+    // directory exists, no need to create
+    return -1;
+  }
+  free( pfs_dirs[dir_id]->name );
+  pfs_dirs[dir_id]->name = NULL;
+  return 0;
 }
 
 
 struct dirent * pfs_readdir( PSRAMDIR * dir )
 {
-  // makes no sense (yet?) to support that
   return NULL;
 }
 
 
 void pfs_closedir( PSRAMDIR * dir )
 {
-  // makes no sense (yet?) to support that
   return;
 }
 
@@ -522,5 +571,162 @@ void pfs_rewinddir( PSRAMDIR * dir )
 }
 
 
+
+
+char *pfs_flags_conv(int m)
+{
+  memset( pfs_flag, 0, 3 );
+  if (m == O_APPEND) {ESP_LOGV(TAG, "O_APPEND"); return "a+";}
+  if (m == O_RDONLY) {ESP_LOGV(TAG, "O_RDONLY"); return "r";}
+  if (m & O_WRONLY)  {ESP_LOGV(TAG, "O_WRONLY"); return "w";}
+  if (m & O_RDWR)    {ESP_LOGV(TAG, "O_RDWR");   return "r+";}
+  if (m & O_EXCL)    {ESP_LOGV(TAG, "O_EXCL");   return "w";}
+  if (m & O_CREAT)   {ESP_LOGV(TAG, "O_CREAT");  return "w";}
+  if (m & O_TRUNC)   {ESP_LOGV(TAG, "O_TRUNC");  return "w";}
+  return pfs_flag;
+}
+
+
+static int vfs_pfs_fopen( const char * path, int flags, int mode )
+{
+  PSRAMFILE* tmp = pfs_fopen( path, pfs_flags_conv(mode) );
+  if( tmp != NULL ) {
+    return tmp->file_id;
+  }
+  return -1;
+}
+
+
+static ssize_t vfs_pfs_read( int fd, void * dst, size_t size)
+{
+  if( pfs_files[fd] == NULL ) return 0;
+  return pfs_fread( dst, size, 1, pfs_files[fd] );
+}
+
+
+static ssize_t vfs_pfs_write( int fd, const void * data, size_t size)
+{
+  if( pfs_files[fd] == NULL ) return 0;
+  return pfs_fwrite( data, size, 1, pfs_files[fd] );
+}
+
+
+static int vfs_pfs_close(int fd)
+{
+  if( pfs_files[fd] == NULL ) return -1;
+  pfs_fclose( pfs_files[fd] );
+  return fd;
+}
+
+static int vfs_pfs_fsync(int fd)
+{
+  // not sure it's needed with ramdisk
+  return fd;
+}
+
+
+static int vfs_pfs_stat( const char * path, struct stat * st)
+{
+  int res = pfs_stat( path, st );
+  if( res == 1 ) return -1;
+  return 0;
+}
+
+static off_t vfs_pfs_lseek(int fd, off_t offset, int mode)
+{
+
+  if( pfs_files[fd] == NULL ) return -1;
+  int res = pfs_fseek( pfs_files[fd], offset, mode );
+  if( res == 0 ) return -1;
+  return 0;
+}
+
+static int vfs_pfs_unlink(const char *path)
+{
+  int res = pfs_unlink( path ); // 0 = success, 1 = fail
+  if( res == 1 ) return -1;
+  return 0;
+}
+
+
+static int vfs_pfs_rename( const char *src, const char *dst)
+{
+  return pfs_rename( src, dst );
+}
+
+
+static int vfs_pfs_rmdir(const char* name)
+{
+  return pfs_rmdir( name );
+}
+
+
+static int vfs_pfs_mkdir(const char* name, mode_t mode)
+{
+  int res = pfs_mkdir( name );
+  if( res == 1 ) return -1;
+  return 0;
+}
+
+
+static DIR* vfs_pfs_opendir(const char* name)
+{
+  PSRAMDIR* tmp = pfs_opendir( name );
+  if( tmp == NULL ) return NULL;
+  return (DIR*) tmp;
+}
+
+static struct dirent* vfs_pfs_readdir(DIR* pdir)
+{
+  if( pfs_dirs[pdir->dd_vfs_idx] == NULL ) return NULL;
+  struct dirent* tmp = pfs_readdir( pfs_dirs[pdir->dd_vfs_idx] );
+  return tmp;
+}
+
+static int vfs_pfs_closedir(DIR* pdir)
+{
+  assert(pdir);
+  if( pfs_dirs[pdir->dd_vfs_idx] == NULL ) return -1;
+  pfs_closedir( pfs_dirs[pdir->dd_vfs_idx] );
+  return 0;
+}
+
+
+
+
+
+esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
+
+  assert(conf->base_path);
+
+  esp_vfs_t vfs = {
+    .flags       = ESP_VFS_FLAG_DEFAULT,
+    .open        = &vfs_pfs_fopen,
+    .read        = &vfs_pfs_read,
+    .write       = &vfs_pfs_write,
+    .close       = &vfs_pfs_close,
+    .fsync       = &vfs_pfs_fsync,
+    .fstat       = NULL,
+    .stat        = &vfs_pfs_stat,
+    .lseek       = &vfs_pfs_lseek,
+    .unlink      = &vfs_pfs_unlink,
+    .rename      = &vfs_pfs_rename,
+    .mkdir       = &vfs_pfs_mkdir,
+    .rmdir       = &vfs_pfs_rmdir,    // TODO: implement this
+    .opendir     = &vfs_pfs_opendir,  // TODO: implement this
+    .readdir     = &vfs_pfs_readdir,  // TODO: implement this
+    .closedir    = &vfs_pfs_closedir, // TODO: implement this
+  };
+
+  esp_err_t err = esp_vfs_register(conf->base_path, &vfs, NULL);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to register PSramFS to \"%s\"", conf->base_path);
+    return err;
+  }
+
+  ESP_LOGD(TAG, "Successfully registered PSramFS to \"%s\"", conf->base_path);
+
+  return ESP_OK;
+}
 
 

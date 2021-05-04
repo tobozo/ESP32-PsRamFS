@@ -72,10 +72,9 @@ namespace fs
       ~PSRamFSFileImpl();
       size_t      write(const uint8_t *buf, size_t size);
       bool        print(const char* str);
-      virtual int         read(); // ?
-      size_t      read(uint8_t* buf, size_t size); // ?
-      size_t      readBytes(char *buffer, size_t length); // ?
-      //bool        available(); // ?
+      virtual int read(); // ?
+      size_t      read(uint8_t* buf, size_t size);
+      size_t      readBytes(char *buffer, size_t length);
       void        flush();
       bool        seek(uint32_t pos, SeekMode mode);
       size_t      position() const;

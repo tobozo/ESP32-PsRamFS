@@ -11,6 +11,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
 
   struct PSRAMFILE
   {
+    int file_id;
     char * name;
     char * bytes;
     unsigned long size;

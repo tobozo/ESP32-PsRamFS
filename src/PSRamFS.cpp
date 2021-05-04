@@ -39,16 +39,32 @@ F_PSRam::F_PSRam(FSImplPtr impl)
 
 bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFiles, const char * partitionLabel)
 {
-  //PSRAMFILE ** pfs_files = ;
 
   if( pfs_get_files() != NULL ) {
-    // log_v("already begun");
+    log_w("Filesystem already mounted");
     return true;
   }
 
   if (!psramInit() ){
     log_e("No psram found");
     return false;
+  }
+
+  esp_vfs_pfs_conf_t conf = {
+    .base_path = basePath,
+    .partition_label = partitionLabel,
+    .format_if_mount_failed = false
+  };
+
+  esp_err_t err = esp_vfs_pfs_register(&conf);
+  if(err == ESP_FAIL && formatOnFail){
+      if(format()){
+          err = esp_vfs_pfs_register(&conf);
+      }
+  }
+  if(err != ESP_OK){
+      log_e("Mounting PSRAMFS failed! Error: %d", err);
+      return false;
   }
 
   partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreePsram();
