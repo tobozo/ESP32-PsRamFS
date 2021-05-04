@@ -299,7 +299,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
     return pfs_files[file_id];
   }
 
-  if(mode && mode[0] != 'r') {
+  if(mode && (mode[0] != 'r' || mode[1] == '+') ) {
     // new file, write mode
     int slotscount = 0;
     int fileslot = pfs_next_file_avail();
