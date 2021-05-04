@@ -80,7 +80,7 @@ typedef enum {
 
 pfs_file_t ** pfs_get_files();
 pfs_dir_t  ** pfs_get_dirs();
-int         pfs_max_items();
+int         pfs_get_max_items();
 void        pfs_free();
 void        pfs_clean_files();
 int         pfs_stat( const char * path, const void *_stat );
@@ -98,6 +98,11 @@ int         pfs_mkdir( const char* path );
 struct dirent * pfs_readdir( pfs_dir_t * dir );
 void        pfs_closedir( pfs_dir_t * dir );
 void        pfs_rewinddir( pfs_dir_t * dir );
+void        pfs_set_psram( bool use );
+bool        pfs_get_psram();
+size_t      pfs_used_bytes();
+void        pfs_set_partition_size( size_t size );
+size_t      pfs_get_partition_size();
 esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
 
 #ifdef __cplusplus

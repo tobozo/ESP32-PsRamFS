@@ -1,5 +1,6 @@
 #include "FS.h"
 #include "PSRamFS.h"
+#include "pfs.h"
 
 // You don't really need to format PSRamFS unless previously used
 #define FORMAT_PSRAMFS true
@@ -22,7 +23,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
   PSRAMFILE ** myFiles = (PSRAMFILE **)PSRamFS.getFiles();
 
   if( myFiles != NULL ) {
-    size_t myFilesCount = 256;
+    size_t myFilesCount = pfs_get_max_items();
     if( myFilesCount > 0 ) {
       for( int i=0; i<myFilesCount; i++ ) {
         if( myFiles[i]->name != NULL ) {

@@ -33,6 +33,8 @@
 #include "esp_idf_version.h"
 #endif
 
+#include "sdkconfig.h"
+
 #include "esp_log.h"
 
 
@@ -51,12 +53,25 @@
 #include "esp_heap_caps.h"
 #include "esp32-hal-log.h"
 
-#define realloc(p,s)    heap_caps_realloc(p, s, MALLOC_CAP_8BIT)
-#define ps_malloc(p)    heap_caps_malloc(p, MALLOC_CAP_SPIRAM)
-#define ps_realloc(p,s) heap_caps_realloc(p, s, MALLOC_CAP_SPIRAM)
-#define ps_calloc(p, s) heap_caps_calloc(p, s, MALLOC_CAP_SPIRAM)
-#define ALLOC_BLOCK_SIZE 4096
-#define MAX_PSRAM_FILES 256
+void*    p_malloc(size_t size) { return heap_caps_malloc( size, MALLOC_CAP_SPIRAM ); }
+void*    p_calloc(size_t n, size_t size) { return heap_caps_calloc( n, size, MALLOC_CAP_SPIRAM ); }
+void*    p_realloc(void *ptr, size_t size)  { return heap_caps_realloc( ptr, size, MALLOC_CAP_SPIRAM ); }
+uint32_t p_free() { return heap_caps_get_free_size(MALLOC_CAP_SPIRAM); }
+
+
+void*    i_malloc(size_t size) { return heap_caps_malloc( size, MALLOC_CAP_8BIT ); }
+void*    i_calloc(size_t n, size_t size) { return heap_caps_calloc( n, size, MALLOC_CAP_8BIT ); }
+void*    i_realloc(void *ptr, size_t size)  { return heap_caps_realloc( ptr, size, MALLOC_CAP_8BIT ); }
+uint32_t i_free() { return heap_caps_get_free_size(MALLOC_CAP_8BIT); }
+
+void*    (*pfs_malloc)(size_t size);
+void*    (*pfs_calloc)(size_t n, size_t size);
+void*    (*pfs_realloc)(void *ptr, size_t size);
+uint32_t (*pfs_free_mem)(void);
+static bool pfs_psram_enabled = true;
+
+int pfs_alloc_block_size = 4096;
+int pfs_max_items  = 256;
 
 #include "pfs.h"
 #include "esp_vfs.h"
@@ -69,9 +84,11 @@ pfs_dir_t  ** pfs_dirs;
 int pfs_files_set = -1;
 int pfs_dirs_set = -1;
 
+size_t pfs_partition_size = 0;
+
 pfs_file_t ** pfs_get_files();
 pfs_dir_t  ** pfs_get_dirs();
-int         pfs_max_items();
+int         pfs_get_max_items();
 void        pfs_init_files();
 void        pfs_init_dirs();
 int         pfs_next_file_avail();
@@ -96,6 +113,13 @@ int         pfs_rmdir( const char* path );
 struct dirent * pfs_readdir( pfs_dir_t * dir );
 void        pfs_closedir( pfs_dir_t * dir );
 void        pfs_rewinddir( pfs_dir_t * dir );
+
+void        pfs_set_partition_size( size_t size );
+size_t      pfs_get_partition_size();
+void        pfs_set_psram( bool use );
+bool        pfs_get_psram();
+size_t      pfs_used_bytes();
+
 
 static char pfs_flag[3] = {0,0,0};
 char *pfs_flags_conv(int m);
@@ -123,41 +147,94 @@ esp_err_t  esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
 pfs_file_t ** pfs_get_files() { return pfs_files; }
 pfs_dir_t  ** pfs_get_dirs()  { return pfs_dirs;  }
 
-int pfs_max_items()
+int pfs_get_max_items()
 {
-  return MAX_PSRAM_FILES;
+  return pfs_max_items;
+}
+
+
+void pfs_set_psram( bool use )
+{
+  pfs_psram_enabled = use;
+  #ifdef BOARD_HAS_PSRAM
+    if( pfs_psram_enabled ) {
+      pfs_malloc    = p_malloc;
+      pfs_realloc   = p_realloc;
+      pfs_calloc    = p_calloc;
+      pfs_free_mem  = p_free;
+      pfs_max_items = 256;
+      pfs_alloc_block_size = 4096;
+      log_d("pfs will use psram");
+    } else {
+      pfs_malloc    = i_malloc;
+      pfs_realloc   = i_realloc;
+      pfs_calloc    = i_calloc;
+      pfs_free_mem  = i_free;
+      pfs_max_items = 16;
+      pfs_alloc_block_size = 512;
+      log_d("pfs will use heap by config");
+    }
+  #else
+    pfs_psram_enabled = false;
+    pfs_malloc    = i_malloc;
+    pfs_realloc   = i_realloc;
+    pfs_calloc    = i_calloc;
+    pfs_free_mem  = i_free;
+    pfs_max_items = 16;
+    pfs_alloc_block_size = 512;
+    log_d("pfs will use heap");
+  #endif
+}
+
+bool pfs_get_psram()
+{
+  return pfs_psram_enabled;
+}
+
+
+void pfs_set_partition_size( size_t size )
+{
+  pfs_partition_size = size;
+}
+
+
+size_t pfs_get_partition_size()
+{
+  return pfs_partition_size;
 }
 
 
 void pfs_init_files()
 {
-  pfs_files = (pfs_file_t**)ps_calloc( MAX_PSRAM_FILES, sizeof( pfs_file_t* ) );
+  pfs_set_psram( pfs_psram_enabled );
+
+  pfs_files = (pfs_file_t**)pfs_calloc( pfs_max_items, sizeof( pfs_file_t* ) );
   if( pfs_files == NULL ) {
-    log_e("Unable to init psram fs, halting");
+    log_e("Unable to init pfs, halting");
     while(1);
   }
-  for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
-    pfs_files[i] = (pfs_file_t*)ps_calloc( 1, sizeof( pfs_file_t ) );
+  for( int i=0; i<pfs_max_items; i++ ) {
+    pfs_files[i] = (pfs_file_t*)pfs_calloc( 1, sizeof( pfs_file_t ) );
     if( pfs_files[i] == NULL ) {
-      log_e("Unable to init psram fs, halting");
+      log_e("Unable to init pfs, halting");
       while(1);
     }
   }
-  log_d("Psram init files OK");
+  log_d("Init files OK");
 }
 
 
 void pfs_init_dirs()
 {
-  pfs_dirs = (pfs_dir_t **)ps_calloc( MAX_PSRAM_FILES, sizeof( pfs_dir_t* ) );
+  pfs_dirs = (pfs_dir_t **)pfs_calloc( pfs_max_items, sizeof( pfs_dir_t* ) );
   if( pfs_dirs == NULL ) {
-    log_e("Unable to init psram fs, halting");
+    log_e("Unable to init pfs, halting");
     while(1);
   }
-  for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
-    pfs_dirs[i] = (pfs_dir_t*)ps_calloc( 1, sizeof( pfs_dir_t ) );
+  for( int i=0; i<pfs_max_items; i++ ) {
+    pfs_dirs[i] = (pfs_dir_t*)pfs_calloc( 1, sizeof( pfs_dir_t ) );
     if( pfs_dirs[i] == NULL ) {
-      log_e("Unable to init psram fs, halting");
+      log_e("Unable to init pfs, halting");
       while(1);
     }
   }
@@ -169,9 +246,9 @@ int pfs_next_file_avail()
 {
   int res = 0;
   if( pfs_files != NULL ) {
-    for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_files[i]->name == NULL ) {
-        log_v("File Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
+        log_v("File Slot %d out of %d is free [r]", i, pfs_max_items );
         return i;
       }
     }
@@ -187,9 +264,9 @@ int pfs_next_dir_avail()
 {
   int res = 0;
   if( pfs_dirs != NULL ) {
-    for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_dirs[i]->name == NULL ) {
-        log_v("Dir Slot %d out of %d is free [r]", i, MAX_PSRAM_FILES );
+        log_v("Dir Slot %d out of %d is free [r]", i, pfs_max_items );
         return i;
       }
     }
@@ -203,7 +280,7 @@ int pfs_next_dir_avail()
 int pfs_find_file( const char* path )
 {
   if( pfs_files != NULL ) {
-    for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_files[i]->name == NULL ) continue;
       if( strcmp( path, pfs_files[i]->name ) == 0 ) {
         return i;
@@ -220,7 +297,7 @@ int pfs_find_dir( const char* path )
 {
   if( pfs_dirs != NULL ) {
     unsigned long entitycount = 0;
-    for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_dirs[i]->name == NULL ) continue;
       if( strcmp( path, pfs_dirs[i]->name ) == 0 ) {
         return i;
@@ -230,6 +307,20 @@ int pfs_find_dir( const char* path )
     pfs_init_dirs();
   }
   return -1;
+}
+
+
+size_t pfs_used_bytes()
+{
+  size_t totalsize = 0;
+  if( pfs_files != NULL ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
+      if( pfs_files[i]->name != NULL ) {
+        totalsize += pfs_files[i]->size;
+      }
+    }
+  }
+  return totalsize;
 }
 
 
@@ -314,7 +405,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
       free( pfs_files[fileslot]->name );
     }
     int pathlen = strlen(path);
-    pfs_files[fileslot]->name = (char*)ps_malloc( pathlen+1 );
+    pfs_files[fileslot]->name = (char*)pfs_malloc( pathlen+1 );
     memcpy( pfs_files[fileslot]->name, path, pathlen+1 );
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size  = 0;
@@ -357,16 +448,29 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
 {
   size_t to_write = size*count;
   if( stream->index + to_write >= stream->memsize ) {
+
+    size_t used_bytes = pfs_used_bytes();
+
     if( stream->bytes == NULL ) {
-      log_d("Allocating %d bytes to write %d bytes", ALLOC_BLOCK_SIZE, to_write );
-      stream->bytes = (char*)ps_calloc( 1, ALLOC_BLOCK_SIZE /*, sizeof(char) */);
-      stream->memsize = ALLOC_BLOCK_SIZE;
+      if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
+        log_e("Not enough memory left, cowardly aborting");
+        return 0;
+      }
+      log_d("Allocating %d bytes to write %d bytes", pfs_alloc_block_size, to_write );
+      stream->bytes = (char*)pfs_calloc( 1, pfs_alloc_block_size /*, sizeof(char) */);
+      stream->memsize = pfs_alloc_block_size;
+      used_bytes += pfs_alloc_block_size;
     }
     while( stream->index + to_write >= stream->memsize ) {
-      log_d("Reallocating %d bytes to write %d bytes at index %d/%d => %d", ALLOC_BLOCK_SIZE, to_write, stream->index, stream->size, stream->index + ALLOC_BLOCK_SIZE  );
-      log_d("stream->bytes = (char*)realloc( %d, %d );", stream->bytes, stream->index + ALLOC_BLOCK_SIZE  );
-      stream->bytes = (char*)ps_realloc( stream->bytes, stream->memsize + ALLOC_BLOCK_SIZE  );
-      stream->memsize += ALLOC_BLOCK_SIZE;
+      if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
+        log_e("Not enough memory left, cowardly aborting");
+        return 0;
+      }
+      log_d("[bytes free:%d] Reallocating %d bytes to write %d bytes at index %d/%d => %d", pfs_free_mem(), pfs_alloc_block_size, to_write, stream->index, stream->size, stream->index + pfs_alloc_block_size  );
+      log_v("stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->bytes, stream->index + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
+      stream->bytes = (char*)pfs_realloc( stream->bytes, stream->memsize + pfs_alloc_block_size  );
+      stream->memsize += pfs_alloc_block_size;
+      used_bytes += pfs_alloc_block_size;
     }
   } else {
     log_v("Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
@@ -413,8 +517,13 @@ int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
 
 size_t pfs_ftell( pfs_file_t * stream )
 {
-  log_d("Getting cursor for %s = %d", stream->name, stream->index+1);
-  return stream->index+1;
+  if( stream->index+1 < stream->size ) {
+    log_d("Getting cursor for %s = %d", stream->name, stream->index+1);
+    return stream->index+1;
+  } else {
+    log_d("Reached EOF, returning index %s", stream->size-1 );
+    return stream->size-1;
+  }
 }
 
 
@@ -453,7 +562,7 @@ int pfs_unlink( const char * path )
 
 void pfs_free()
 {
-  for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+  for( int i=0; i<pfs_max_items; i++ ) {
     if( pfs_files[i]->name != NULL ) {
       pfs_unlink( pfs_files[i]->name );
       free( pfs_files[i] );
@@ -465,7 +574,7 @@ void pfs_free()
 
 void pfs_clean_files()
 {
-  for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
+  for( int i=0; i<pfs_max_items; i++ ) {
     if( pfs_files[i]->name != NULL ) {
       pfs_unlink( pfs_files[i]->name );
     }
@@ -483,7 +592,7 @@ int pfs_rename( const char * from, const char * to )
   file_id = pfs_find_file( from );
   if( file_id > -1 ) {
     free( pfs_files[file_id]->name );
-    pfs_files[file_id]->name = (char*)ps_malloc( strlen(to)+1 );
+    pfs_files[file_id]->name = (char*)pfs_malloc( strlen(to)+1 );
     memcpy( pfs_files[file_id]->name, to, strlen(to)+1 );
     return 0;
   }
@@ -496,7 +605,7 @@ int pfs_rename( const char * from, const char * to )
   dir_id = pfs_find_dir( from );
   if( dir_id > -1 ) {
     free( pfs_dirs[dir_id]->name );
-    pfs_dirs[dir_id]->name = (char*)ps_malloc( strlen(to)+1 );
+    pfs_dirs[dir_id]->name = (char*)pfs_malloc( strlen(to)+1 );
     memcpy( pfs_dirs[dir_id]->name, to, strlen(to)+1 );
     return 0;
   }
@@ -534,7 +643,7 @@ int pfs_mkdir( const char* path )
 
   int slotscount = 0;
   int dirslot = pfs_next_dir_avail();
-  pfs_dirs[dirslot]->name = (char*)ps_calloc(1, sizeof( path ) +1 );
+  pfs_dirs[dirslot]->name = (char*)pfs_calloc(1, sizeof( path ) +1 );
   pfs_dirs[dirslot]->dir_id = dirslot;
   memcpy( pfs_dirs[dirslot]->name, path, sizeof( path ) +1 );
   if( pfs_dirs[dirslot] != NULL ) {
