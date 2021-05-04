@@ -76,11 +76,19 @@ void readFile(fs::FS &fs, const char * path)
   if( !file.available() ) {
     log_e("- CANNOT read from file");
   } else {
-    log_n("- read from file:\n");
+    log_n("- read from file:");
+    Serial.println();
+
     while( file.available() ) {
-      int out = file.read();
-      log_d( "Out: %02x", out );
-      Serial.write(out);
+      #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
+        int out = file.read();
+        char outchar[2] = {(char)out,0};
+        log_d("Position: %4d, Char : %s, Hex: %02x", file.position(), outchar, out);
+      #else
+       //log_d( "Out: %02x", out );
+       //Serial.write(out);
+        Serial.write( file.read() );
+      #endif
     }
   }
   Serial.println("\n");

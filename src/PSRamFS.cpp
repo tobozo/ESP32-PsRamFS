@@ -134,6 +134,9 @@ size_t F_PSRam::freeBytes()
 
 bool F_PSRam::exists(const char* path)
 {
+
+  //pfs_file_t* f = pfs_fopen(path, "r");
+  //return f!=NULL;
   File f = open(path, "r");
   return (f == true) && !f.isDirectory();
 }

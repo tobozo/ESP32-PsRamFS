@@ -280,7 +280,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
       switch( mode[0] ) {
         case 'a': // seek end
           if( pfs_files[file_id]->size > 0 ) {
-            pfs_files[file_id]->index = pfs_files[file_id]->size - 1;
+            pfs_files[file_id]->index = pfs_files[file_id]->size;
           }
         break;
         case 'w': // truncate
@@ -332,8 +332,13 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 {
   size_t to_read = size*count;
   if( ( stream->index + to_read ) > stream->size ) {
-    log_e("Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
-    return 1;
+    if( stream->index < stream->size ) {
+      to_read = stream->size - (stream->index+1);
+      if( to_read == 0 ) return 0;
+    } else {
+      log_e("Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
+      return 1;
+    }
   }
   memcpy( buf, &stream->bytes[stream->index], to_read );
   if( to_read > 1 ) {
@@ -351,13 +356,13 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream)
 {
   size_t to_write = size*count;
-  if( stream->index + to_write > stream->memsize ) {
+  if( stream->index + to_write >= stream->memsize ) {
     if( stream->bytes == NULL ) {
       log_d("Allocating %d bytes to write %d bytes", ALLOC_BLOCK_SIZE, to_write );
-      stream->bytes = (char*)ps_malloc( ALLOC_BLOCK_SIZE /*, sizeof(char) */);
+      stream->bytes = (char*)ps_calloc( 1, ALLOC_BLOCK_SIZE /*, sizeof(char) */);
       stream->memsize = ALLOC_BLOCK_SIZE;
     }
-    while( stream->index + to_write > stream->memsize ) {
+    while( stream->index + to_write >= stream->memsize ) {
       log_d("Reallocating %d bytes to write %d bytes at index %d/%d => %d", ALLOC_BLOCK_SIZE, to_write, stream->index, stream->size, stream->index + ALLOC_BLOCK_SIZE  );
       log_d("stream->bytes = (char*)realloc( %d, %d );", stream->bytes, stream->index + ALLOC_BLOCK_SIZE  );
       stream->bytes = (char*)ps_realloc( stream->bytes, stream->memsize + ALLOC_BLOCK_SIZE  );

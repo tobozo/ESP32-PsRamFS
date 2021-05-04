@@ -59,4 +59,61 @@ class F_PSRam : public FS
 
 extern fs::F_PSRam PSRamFS;
 
+
+
+class RomDiskStream : public Stream
+{
+  public:
+
+    RomDiskStream( const unsigned char* arr, size_t size ) : my_byte_array(arr), my_byte_array_size(size), my_byte_array_index(0) { }
+
+    int available()
+    {
+      return (my_byte_array_index < my_byte_array_size ) ? 1 : 0;
+    }
+
+    int read()
+    {
+      if( available() ) return my_byte_array[++my_byte_array_index];
+      else return -1;
+    }
+
+    size_t readBytes(char *buffer, size_t length)
+    {
+
+      if( ( my_byte_array_index + length ) > my_byte_array_size ) {
+        log_e("Attempted to read %d bytes, out of bounds at index %d of %d", length, my_byte_array_index, my_byte_array_size );
+        if( my_byte_array_index < my_byte_array_size ) {
+          length = my_byte_array_size - my_byte_array_index;
+        } else {
+          return 0;
+        }
+      }
+      memcpy( buffer, &my_byte_array[my_byte_array_index], length );
+      my_byte_array_index += length;
+      return length;
+    }
+
+    int peek()
+    {
+      return my_byte_array[my_byte_array_index];
+    }
+
+    size_t write(uint8_t)
+    {
+      return 0;
+    }
+
+    void flush() { }
+
+  private:
+
+    const unsigned char* my_byte_array;
+    size_t   my_byte_array_size;
+    uint32_t my_byte_array_index;
+};
+
+
+
+
 #endif /* _PSRAMFS_H_ */
