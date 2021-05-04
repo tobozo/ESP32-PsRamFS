@@ -35,7 +35,7 @@
 
 #include "sdkconfig.h"
 
-#include "esp_log.h"
+//#include "esp_log.h"
 
 
 #include "freertos/FreeRTOS.h"
@@ -92,7 +92,6 @@ int         pfs_get_max_items();
 void        pfs_set_max_items(size_t max_items);
 int         pfs_get_block_size();
 void        pfs_set_block_size(size_t block_size);
-
 void        pfs_init_files();
 void        pfs_init_dirs();
 int         pfs_next_file_avail();
@@ -156,13 +155,16 @@ esp_err_t  esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
 pfs_file_t ** pfs_get_files() { return pfs_files; }
 pfs_dir_t  ** pfs_get_dirs()  { return pfs_dirs;  }
 
+
 int pfs_get_max_items()
 {
   return pfs_max_items;
 }
 
+
 void pfs_set_max_items(size_t max_items)
 {
+  ESP_LOGD(TAG, "Setting max items to %d", pfs_max_items);
   pfs_max_items = max_items;
 }
 
@@ -175,6 +177,7 @@ int pfs_get_block_size()
 
 void pfs_set_block_size(size_t block_size)
 {
+  ESP_LOGD(TAG, "Setting alloc block size to %d", block_size);
   pfs_alloc_block_size = block_size;
 }
 
@@ -190,7 +193,7 @@ void pfs_set_psram( bool use )
       pfs_free_mem  = p_free;
       pfs_set_max_items( 256 );
       pfs_set_block_size( 4096 );
-      log_d("pfs will use psram");
+      ESP_LOGD(TAG, "pfs will use psram");
     } else {
       pfs_malloc    = i_malloc;
       pfs_realloc   = i_realloc;
@@ -198,7 +201,7 @@ void pfs_set_psram( bool use )
       pfs_free_mem  = i_free;
       pfs_set_max_items( 16 );
       pfs_set_block_size( 512 );
-      log_d("pfs will use heap by config");
+      ESP_LOGD(TAG, "pfs will use heap by config");
     }
   #else
     pfs_psram_enabled = false;
@@ -208,7 +211,7 @@ void pfs_set_psram( bool use )
     pfs_free_mem  = i_free;
     pfs_set_max_items( 16 );
     pfs_set_block_size( 512 );
-    log_d("pfs will use heap");
+    ESP_LOGD(TAG, "pfs will use heap");
   #endif
 }
 
@@ -238,17 +241,17 @@ void pfs_init_files()
 
   pfs_files = (pfs_file_t**)pfs_calloc( pfs_max_items, sizeof( pfs_file_t* ) );
   if( pfs_files == NULL ) {
-    log_e("Unable to init pfs, halting");
+    ESP_LOGE(TAG, "Unable to init pfs, halting");
     while(1);
   }
   for( int i=0; i<pfs_max_items; i++ ) {
     pfs_files[i] = (pfs_file_t*)pfs_calloc( 1, sizeof( pfs_file_t ) );
     if( pfs_files[i] == NULL ) {
-      log_e("Unable to init pfs, halting");
+      ESP_LOGE(TAG, "Unable to init pfs, halting");
       while(1);
     }
   }
-  log_d("Init files OK");
+  ESP_LOGD(TAG, "Init files OK");
 }
 
 
@@ -256,17 +259,17 @@ void pfs_init_dirs()
 {
   pfs_dirs = (pfs_dir_t **)pfs_calloc( pfs_max_items, sizeof( pfs_dir_t* ) );
   if( pfs_dirs == NULL ) {
-    log_e("Unable to init pfs, halting");
+    ESP_LOGE(TAG, "Unable to init pfs, halting");
     while(1);
   }
   for( int i=0; i<pfs_max_items; i++ ) {
     pfs_dirs[i] = (pfs_dir_t*)pfs_calloc( 1, sizeof( pfs_dir_t ) );
     if( pfs_dirs[i] == NULL ) {
-      log_e("Unable to init pfs, halting");
+      ESP_LOGE(TAG, "Unable to init pfs, halting");
       while(1);
     }
   }
-  log_d("Psram init dirs OK");
+  ESP_LOGD(TAG, "Psram init dirs OK");
 }
 
 
@@ -276,13 +279,13 @@ int pfs_next_file_avail()
   if( pfs_files != NULL ) {
     for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_files[i]->name == NULL ) {
-        log_v("File Slot %d out of %d is free [r]", i, pfs_max_items );
+        ESP_LOGV(TAG, "File Slot %d out of %d is free [r]", i, pfs_max_items );
         return i;
       }
     }
-    log_e("Too many files created.");
+    ESP_LOGE(TAG, "Too many files created.");
   } else {
-    log_e("No allocated space for files");
+    ESP_LOGE(TAG, "No allocated space for files");
   }
   return res;
 }
@@ -294,12 +297,12 @@ int pfs_next_dir_avail()
   if( pfs_dirs != NULL ) {
     for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_dirs[i]->name == NULL ) {
-        log_v("Dir Slot %d out of %d is free [r]", i, pfs_max_items );
+        ESP_LOGV(TAG, "Dir Slot %d out of %d is free [r]", i, pfs_max_items );
         return i;
       }
     }
   }
-  log_e("Too many dirs created, halting");
+  ESP_LOGE(TAG, "Too many dirs created, halting");
   while(1);
   return res;
 }
@@ -363,19 +366,19 @@ int pfs_stat( const char * path, const void *_stat )
     stat_->st_size = pfs_files[file_id]->size;
     stat_->st_mode = DT_REG;
     stat_->st_name = pfs_files[file_id]->name;
-    log_v("stating for DT_REG(%s) success", path );
+    ESP_LOGV(TAG, "stating for DT_REG(%s) success", path );
     return 0;
   } else {
-    log_v("stating for DT_REG(%s) no pass", path );
+    ESP_LOGV(TAG, "stating for DT_REG(%s) no pass", path );
   }
 
   int dir_id = pfs_find_dir( path );
   if( dir_id > -1 ) {
     stat_->st_mode = DT_DIR;
-    log_v("stating for DT_DIR(%s) success", path );
+    ESP_LOGV(TAG, "stating for DT_DIR(%s) success", path );
     return 0;
   } else {
-    log_v("stating for DT_DIR(%s) no pass", path );
+    ESP_LOGV(TAG, "stating for DT_DIR(%s) no pass", path );
   }
 
   return 1;
@@ -386,10 +389,10 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
 {
 
   if( path == NULL ) {
-    log_e("Invalid path");
+    ESP_LOGE(TAG, "Invalid path");
     return NULL;
   } else {
-    log_v("valid path :%s", path );
+    ESP_LOGV(TAG, "valid path :%s", path );
   }
 
   int file_id = pfs_find_file( path );
@@ -415,7 +418,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
         break;
       }
     }
-    log_d( "file exists: %s (mode %s)", path, mode);
+    ESP_LOGD(TAG, "file exists: %s (mode %s)", path, mode);
     return pfs_files[file_id];
   }
 
@@ -425,11 +428,11 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
     int fileslot = pfs_next_file_avail();
 
     if( fileslot < 0 || pfs_files[fileslot] == NULL ) {
-      log_e("alloc fail!");
+      ESP_LOGE(TAG, "alloc fail!");
       return NULL;
     }
     if( pfs_files[fileslot]->name != NULL ) {
-      log_e("Name from file slot #%d is now null, freeing", fileslot);
+      ESP_LOGE(TAG, "Name from file slot #%d is now null, freeing", fileslot);
       free( pfs_files[fileslot]->name );
     }
     int pathlen = strlen(path);
@@ -439,10 +442,10 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
     pfs_files[fileslot]->size  = 0;
     pfs_files[fileslot]->file_id = fileslot;
 
-    log_d( "file created: %s (mode %s)", path, mode);
+    ESP_LOGD(TAG, "file created: %s (mode %s)", path, mode);
     return pfs_files[fileslot];
   }
-  log_e("can't open: %s (mode %s)", path, mode);
+  ESP_LOGE(TAG, "can't open: %s (mode %s)", path, mode);
   return NULL;
 }
 
@@ -455,17 +458,17 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
       to_read = stream->size - (stream->index+1);
       if( to_read == 0 ) return 0;
     } else {
-      log_e("Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
+      ESP_LOGE(TAG, "Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
       return 1;
     }
   }
   memcpy( buf, &stream->bytes[stream->index], to_read );
   if( to_read > 1 ) {
-    log_v("Reading %d byte(s) at index %d of %d", to_read, stream->index, stream->size );
+    ESP_LOGV(TAG, "Reading %d byte(s) at index %d of %d", to_read, stream->index, stream->size );
   } else {
     char out[2] = {0,0};
     out[0] = buf[0];
-    log_v("Reading %d byte(s) at index %d of %d (%s)", to_read, stream->index, stream->size, out );
+    ESP_LOGV(TAG, "Reading %d byte(s) at index %d of %d (%s)", to_read, stream->index, stream->size, out );
   }
   stream->index += to_read;
   return to_read;
@@ -481,27 +484,27 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
 
     if( stream->bytes == NULL ) {
       if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
-        log_e("Not enough memory left, cowardly aborting");
+        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting");
         return 0;
       }
-      log_d("Allocating %d bytes to write %d bytes", pfs_alloc_block_size, to_write );
+      ESP_LOGD(TAG, "Allocating %d bytes to write %d bytes", pfs_alloc_block_size, to_write );
       stream->bytes = (char*)pfs_calloc( 1, pfs_alloc_block_size /*, sizeof(char) */);
       stream->memsize = pfs_alloc_block_size;
       used_bytes += pfs_alloc_block_size;
     }
     while( stream->index + to_write >= stream->memsize ) {
       if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
-        log_e("Not enough memory left, cowardly aborting");
+        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting");
         return 0;
       }
-      log_d("[bytes free:%d] Reallocating %d bytes to write %d bytes at index %d/%d => %d", pfs_free_mem(), pfs_alloc_block_size, to_write, stream->index, stream->size, stream->index + pfs_alloc_block_size  );
-      log_v("stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->bytes, stream->index + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
+      ESP_LOGD(TAG, "[bytes free:%d] Reallocating %d bytes to write %d bytes at index %d/%d => %d", pfs_free_mem(), pfs_alloc_block_size, to_write, stream->index, stream->size, stream->index + pfs_alloc_block_size  );
+      ESP_LOGV(TAG, "stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->bytes, stream->index + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
       stream->bytes = (char*)pfs_realloc( stream->bytes, stream->memsize + pfs_alloc_block_size  );
       stream->memsize += pfs_alloc_block_size;
       used_bytes += pfs_alloc_block_size;
     }
   } else {
-    log_v("Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
+    ESP_LOGV(TAG, "Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
   }
   memcpy( &stream->bytes[stream->index], buf, to_write );
   stream->index += to_write;
@@ -518,7 +521,7 @@ int pfs_fflush(pfs_file_t * stream)
 
 int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
 {
-  log_v("Seeking mode #%s with offset %d", mode, offset );
+  ESP_LOGV(TAG, "Seeking mode #%s with offset %d", mode, offset );
   switch( mode ) {
     case pfs_seek_set:
       if( offset < stream->size ) {
@@ -546,10 +549,10 @@ int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
 size_t pfs_ftell( pfs_file_t * stream )
 {
   if( stream->index+1 < stream->size ) {
-    log_d("Getting cursor for %s = %d", stream->name, stream->index+1);
+    ESP_LOGD(TAG, "Getting cursor for %s = %d", stream->name, stream->index+1);
     return stream->index+1;
   } else {
-    log_d("Reached EOF, returning index %s", stream->size-1 );
+    ESP_LOGD(TAG, "Reached EOF, returning index %s", stream->size-1 );
     return stream->size-1;
   }
 }
@@ -558,9 +561,9 @@ size_t pfs_ftell( pfs_file_t * stream )
 void pfs_fclose( pfs_file_t * stream )
 {
   if( stream->size < 128 ) {
-    log_d("Closing stream %s (%d bytes) contents: %s\n", stream->name, stream->size, (const char*)stream->bytes);
+    ESP_LOGD(TAG, "Closing stream %s (%d bytes) contents: %s\n", stream->name, stream->size, (const char*)stream->bytes);
   } else {
-    log_d("Closing stream %s (%d bytes)\n", stream->name, stream->size );
+    ESP_LOGD(TAG, "Closing stream %s (%d bytes)\n", stream->name, stream->size );
   }
   stream->index = 0;
   return;
@@ -580,10 +583,10 @@ int pfs_unlink( const char * path )
     pfs_files[file_id]->size = 0;
     pfs_files[file_id]->memsize = 0;
     pfs_files[file_id]->index = 0;
-    log_w("Path %s unlinked successfully", path);
+    ESP_LOGW(TAG, "Path %s unlinked successfully", path);
     return 0;
   }
-  log_w("Path %s not found, can't unlink", path);
+  ESP_LOGW(TAG, "Path %s not found, can't unlink", path);
   return 1;
 }
 
@@ -647,7 +650,7 @@ pfs_dir_t* pfs_opendir( const char * path )
 
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
-    log_w("Can't create dir(%s) as a file already exists with the same name", path );
+    ESP_LOGW(TAG, "Can't create dir(%s) as a file already exists with the same name", path );
     return NULL;
   }
 
