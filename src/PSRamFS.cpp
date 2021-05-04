@@ -112,7 +112,7 @@ size_t F_PSRam::usedBytes()
 {
   size_t slotscount = pfs_max_items();
   size_t totalsize = 0;
-  PSRAMFILE** pfs_files = pfs_get_files();
+  pfs_file_t** pfs_files = pfs_get_files();
   if( pfs_files != NULL ) {
     for( int i=0; i<slotscount; i++ ) {
       if( pfs_files[i]->name != NULL ) {

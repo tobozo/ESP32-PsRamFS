@@ -63,39 +63,39 @@
 
 static const char TAG[] = "esp_psramfs";
 
-PSRAMFILE ** pfs_files;
-PSRAMDIR  ** pfs_dirs;
+pfs_file_t ** pfs_files;
+pfs_dir_t  ** pfs_dirs;
 
 int pfs_files_set = -1;
 int pfs_dirs_set = -1;
 
-PSRAMFILE ** pfs_get_files();
-PSRAMDIR  ** pfs_get_dirs();
-int        pfs_max_items();
-void       pfs_init_files();
-void       pfs_init_dirs();
-int        pfs_next_file_avail();
-int        pfs_next_dir_avail();
-int        pfs_find_file( const char* path );
-int        pfs_find_dir( const char* path );
-int        pfs_stat( const char * path, const void *_stat );
-PSRAMFILE* pfs_fopen( const char * path, const char* mode );
-size_t     pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream );
-size_t     pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream);
-int        pfs_fflush(PSRAMFILE * stream);
-int        pfs_fseek( PSRAMFILE * stream, long offset, pfs_seek_mode mode );
-size_t     pfs_ftell( PSRAMFILE * stream );
-void       pfs_fclose( PSRAMFILE * stream );
-int        pfs_unlink( const char * path );
-void       pfs_free();
-void       pfs_clean_files();
-int        pfs_rename( const char * from, const char * to );
-PSRAMDIR*  pfs_opendir( const char * path );
-int        pfs_mkdir( const char* path );
-int        pfs_rmdir( const char* path );
-struct dirent * pfs_readdir( PSRAMDIR * dir );
-void       pfs_closedir( PSRAMDIR * dir );
-void       pfs_rewinddir( PSRAMDIR * dir );
+pfs_file_t ** pfs_get_files();
+pfs_dir_t  ** pfs_get_dirs();
+int         pfs_max_items();
+void        pfs_init_files();
+void        pfs_init_dirs();
+int         pfs_next_file_avail();
+int         pfs_next_dir_avail();
+int         pfs_find_file( const char* path );
+int         pfs_find_dir( const char* path );
+int         pfs_stat( const char * path, const void *_stat );
+pfs_file_t* pfs_fopen( const char * path, const char* mode );
+size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
+size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
+int         pfs_fflush(pfs_file_t * stream);
+int         pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode );
+size_t      pfs_ftell( pfs_file_t * stream );
+void        pfs_fclose( pfs_file_t * stream );
+int         pfs_unlink( const char * path );
+void        pfs_free();
+void        pfs_clean_files();
+int         pfs_rename( const char * from, const char * to );
+pfs_dir_t*  pfs_opendir( const char * path );
+int         pfs_mkdir( const char* path );
+int         pfs_rmdir( const char* path );
+struct dirent * pfs_readdir( pfs_dir_t * dir );
+void        pfs_closedir( pfs_dir_t * dir );
+void        pfs_rewinddir( pfs_dir_t * dir );
 
 static char pfs_flag[3] = {0,0,0};
 char *pfs_flags_conv(int m);
@@ -119,9 +119,8 @@ esp_err_t  esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
 
 
 
-
-PSRAMFILE ** pfs_get_files() { return pfs_files; }
-PSRAMDIR  ** pfs_get_dirs()  { return pfs_dirs;  }
+pfs_file_t ** pfs_get_files() { return pfs_files; }
+pfs_dir_t  ** pfs_get_dirs()  { return pfs_dirs;  }
 
 int pfs_max_items()
 {
@@ -131,13 +130,13 @@ int pfs_max_items()
 
 void pfs_init_files()
 {
-  pfs_files = (PSRAMFILE**)ps_calloc( MAX_PSRAM_FILES, sizeof( PSRAMFILE* ) );
+  pfs_files = (pfs_file_t**)ps_calloc( MAX_PSRAM_FILES, sizeof( pfs_file_t* ) );
   if( pfs_files == NULL ) {
     log_e("Unable to init psram fs, halting");
     while(1);
   }
   for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
-    pfs_files[i] = (PSRAMFILE*)ps_calloc( 1, sizeof( PSRAMFILE ) );
+    pfs_files[i] = (pfs_file_t*)ps_calloc( 1, sizeof( pfs_file_t ) );
     if( pfs_files[i] == NULL ) {
       log_e("Unable to init psram fs, halting");
       while(1);
@@ -149,13 +148,13 @@ void pfs_init_files()
 
 void pfs_init_dirs()
 {
-  pfs_dirs = (PSRAMDIR **)ps_calloc( MAX_PSRAM_FILES, sizeof( PSRAMDIR* ) );
+  pfs_dirs = (pfs_dir_t **)ps_calloc( MAX_PSRAM_FILES, sizeof( pfs_dir_t* ) );
   if( pfs_dirs == NULL ) {
     log_e("Unable to init psram fs, halting");
     while(1);
   }
   for( int i=0; i<MAX_PSRAM_FILES; i++ ) {
-    pfs_dirs[i] = (PSRAMDIR*)ps_calloc( 1, sizeof( PSRAMDIR ) );
+    pfs_dirs[i] = (pfs_dir_t*)ps_calloc( 1, sizeof( pfs_dir_t ) );
     if( pfs_dirs[i] == NULL ) {
       log_e("Unable to init psram fs, halting");
       while(1);
@@ -263,7 +262,7 @@ int pfs_stat( const char * path, const void *_stat )
 }
 
 
-PSRAMFILE* pfs_fopen( const char * path, const char* mode )
+pfs_file_t* pfs_fopen( const char * path, const char* mode )
 {
 
   if( path == NULL ) {
@@ -328,7 +327,7 @@ PSRAMFILE* pfs_fopen( const char * path, const char* mode )
 }
 
 
-size_t pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream )
+size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 {
   size_t to_read = size*count;
   if( ( stream->index + to_read ) > stream->size ) {
@@ -348,7 +347,7 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream )
 }
 
 
-size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * stream)
+size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream)
 {
   size_t to_write = size*count;
   if( stream->index + to_write > stream->memsize ) {
@@ -373,13 +372,13 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, PSRAMFILE * st
   return to_write;
 }
 
-int pfs_fflush(PSRAMFILE * stream)
+int pfs_fflush(pfs_file_t * stream)
 {
   return 0;
 }
 
 
-int pfs_fseek( PSRAMFILE * stream, long offset, pfs_seek_mode mode )
+int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
 {
   log_v("Seeking mode #%s with offset %d", mode, offset );
   switch( mode ) {
@@ -406,14 +405,14 @@ int pfs_fseek( PSRAMFILE * stream, long offset, pfs_seek_mode mode )
 }
 
 
-size_t pfs_ftell( PSRAMFILE * stream )
+size_t pfs_ftell( pfs_file_t * stream )
 {
   log_d("Getting cursor for %s = %d", stream->name, stream->index+1);
   return stream->index+1;
 }
 
 
-void pfs_fclose( PSRAMFILE * stream )
+void pfs_fclose( pfs_file_t * stream )
 {
   if( stream->size < 128 ) {
     log_d("Closing stream %s (%d bytes) contents: %s\n", stream->name, stream->size, (const char*)stream->bytes);
@@ -500,7 +499,7 @@ int pfs_rename( const char * from, const char * to )
 }
 
 
-PSRAMDIR* pfs_opendir( const char * path )
+pfs_dir_t* pfs_opendir( const char * path )
 {
 
   int file_id = pfs_find_file( path );
@@ -552,19 +551,19 @@ int pfs_rmdir( const char* path )
 }
 
 
-struct dirent * pfs_readdir( PSRAMDIR * dir )
+struct dirent * pfs_readdir( pfs_dir_t * dir )
 {
   return NULL;
 }
 
 
-void pfs_closedir( PSRAMDIR * dir )
+void pfs_closedir( pfs_dir_t * dir )
 {
   return;
 }
 
 
-void pfs_rewinddir( PSRAMDIR * dir )
+void pfs_rewinddir( pfs_dir_t * dir )
 {
   // makes no sense (yet?) to support that
   return;
@@ -589,7 +588,7 @@ char *pfs_flags_conv(int m)
 
 static int vfs_pfs_fopen( const char * path, int flags, int mode )
 {
-  PSRAMFILE* tmp = pfs_fopen( path, pfs_flags_conv(mode) );
+  pfs_file_t* tmp = pfs_fopen( path, pfs_flags_conv(mode) );
   if( tmp != NULL ) {
     return tmp->file_id;
   }
@@ -671,7 +670,7 @@ static int vfs_pfs_mkdir(const char* name, mode_t mode)
 
 static DIR* vfs_pfs_opendir(const char* name)
 {
-  PSRAMDIR* tmp = pfs_opendir( name );
+  pfs_dir_t* tmp = pfs_opendir( name );
   if( tmp == NULL ) return NULL;
   return (DIR*) tmp;
 }

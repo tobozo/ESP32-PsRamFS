@@ -53,13 +53,10 @@ class F_PSRam : public FS
 
   private:
     size_t partitionSize = 0;
-    //void ** pfs_files;
-    //void ** pfs_dirs;
 };
 
 }
 
 extern fs::F_PSRam PSRamFS;
-//using fs::PSRamFSFileImpl;
 
 #endif /* _PSRAMFS_H_ */

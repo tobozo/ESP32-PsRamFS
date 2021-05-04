@@ -58,8 +58,8 @@ namespace fs
   {
     protected:
       PSRamFSImpl*               _fs;
-      PSRAMFILE *                _f;
-      PSRAMDIR *                 _d;
+      pfs_file_t *               _f;
+      pfs_dir_t *                _d;
       char *                     _path;
       bool                       _isDirectory;
       mutable struct pfs_stat_t  _stat;

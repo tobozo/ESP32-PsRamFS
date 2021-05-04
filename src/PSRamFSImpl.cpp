@@ -71,7 +71,7 @@ FileImplPtr PSRamFSImpl::open(const char* path, const char* mode)
   }
 
   //try to open this as directory (might be mount point)
-  PSRAMDIR * d = pfs_opendir(temp);
+  pfs_dir_t* d = pfs_opendir(temp);
   if(d) {
     pfs_closedir(d);
     free(temp);
