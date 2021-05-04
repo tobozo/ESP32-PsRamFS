@@ -106,6 +106,7 @@ static ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
 static int     vfs_pfs_close(int fd);
 static int     vfs_pfs_fsync(int fd);
 static int     vfs_pfs_stat( const char * path, struct stat * st);
+static int     vfs_pfs_fstat( int fd, struct stat * st);
 static off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
 static int     vfs_pfs_unlink(const char *path);
 static int     vfs_pfs_rename( const char *src, const char *dst);
@@ -623,6 +624,13 @@ static int vfs_pfs_fsync(int fd)
   return fd;
 }
 
+static int vfs_pfs_fstat( int fd, struct stat * st)
+{
+  if( pfs_files[fd] == NULL ) return -1;
+  int res = pfs_stat( pfs_files[fd]->name, st );
+  if( res == 1 ) return -1;
+  return 0;
+}
 
 static int vfs_pfs_stat( const char * path, struct stat * st)
 {
@@ -705,7 +713,7 @@ esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
     .write       = &vfs_pfs_write,
     .close       = &vfs_pfs_close,
     .fsync       = &vfs_pfs_fsync,
-    .fstat       = NULL,
+    .fstat       = &vfs_pfs_fstat,
     .stat        = &vfs_pfs_stat,
     .lseek       = &vfs_pfs_lseek,
     .unlink      = &vfs_pfs_unlink,
