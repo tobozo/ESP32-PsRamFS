@@ -80,21 +80,13 @@ void readFile(fs::FS &fs, const char * path)
     log_n("- read from file:");
     Serial.println();
 
-    size_t lastPosition = -1; // debug: avoid endless loop on position()
-
+    int32_t lastPosition = -1;
     while( file.available() ) {
       size_t position = file.position();
-      #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-        int out = file.read();
-        char outchar[2] = {(char)out,0};
-        log_d("Position: %4d, Char : %s, Hex: %02x", position, outchar, out);
-      #else
-       //log_d( "Out: %02x", out );
-       //Serial.write(out);
-        Serial.write( file.read() );
-      #endif
-      if( lastPosition == position ) {
-        log_d("Position stall at : %4d, Char : %s, Hex: %02x -- breaking loop", position, outchar, out);
+      Serial.write( file.read() );
+      if( lastPosition == position ) { // uh-oh
+        Serial.println("Halting");
+        while(1);
         break;
       } else {
         lastPosition = position;
@@ -112,16 +104,18 @@ void writeFile(fs::FS &fs, const char * path, const char * message)
 {
   delay(100);
 
+  log_n("Will truncate %s using %s mode", path, FILE_WRITE );
+
   File file = fs.open(path, FILE_WRITE);
 
   if(!file){
     log_e("Failed to open file %s for writing", path);
     return;
   } else {
-    log_n("Created file: %s", path);
+    log_n("Truncated file: %s", path);
   }
   if( file.write( (const uint8_t*)message, strlen(message)+1 ) ){
-    log_n("- file written\n");
+    log_n("- data written");
   } else {
     log_e("- write failed\n");
   }
@@ -133,7 +127,9 @@ void writeFile(fs::FS &fs, const char * path, const char * message)
 void appendFile(fs::FS &fs, const char * path, const char * message)
 {
   delay(100);
-  log_n("Appending to file: %s", path);
+
+  log_n("Will append %s using %s mode", path, FILE_APPEND );
+  //log_n("Appending to file: %s", path);
 
   File file = fs.open(path, FILE_APPEND);
   if(!file){
@@ -141,7 +137,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message)
     return;
   }
   if( file.write( (const uint8_t*)message, strlen(message)+1 ) ){
-    log_n("- message appended\n");
+    log_n("- message appended");
   } else {
     log_e("- append failed\n");
   }

@@ -46,11 +46,12 @@ typedef struct
 typedef struct
 {
   int file_id;
-  char * name;
-  char * bytes;
-  unsigned long size;
-  unsigned long memsize;
-  unsigned long index;
+  char*    name;
+  char*    bytes;
+  uint32_t size;
+  uint32_t memsize;
+  uint32_t index;
+  //uint32_t flags;
 } pfs_file_t;
 
 
@@ -68,6 +69,28 @@ typedef enum
   pfs_seek_cur = 1,
   pfs_seek_end = 2
 } pfs_seek_mode;
+
+// File open flags
+typedef enum  {
+  // open flags
+  PFS_O_RDONLY = 1,         // Open a file as read only
+  PFS_O_WRONLY = 2,         // Open a file as write only
+  PFS_O_RDWR   = 3,         // Open a file as read and write
+  PFS_O_CREAT  = 0x0100,    // Create a file if it does not exist
+  PFS_O_EXCL   = 0x0200,    // Fail if a file already exists
+  PFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
+  PFS_O_APPEND = 0x0800,    // Move to end of file on every write
+/*
+  // internally used flags
+  PFS_F_DIRTY   = 0x010000, // File does not match storage
+  PFS_F_WRITING = 0x020000, // File has been written since last flush
+  PFS_F_READING = 0x040000, // File has been read since last flush
+  PFS_F_ERRED   = 0x080000, // An error occured during write
+  PFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
+  PFS_F_OPENED  = 0x200000, // File has been opened
+*/
+} pfs_open_flags;
+
 
 
 pfs_file_t ** pfs_get_files();
