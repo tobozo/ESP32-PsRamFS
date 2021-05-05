@@ -26,8 +26,11 @@
 
 
 #include "PSRamFS.h"
-#include "PSRamFSImpl.h"
-#include "pfs.h"
+//#include "PSRamFSImpl.h"
+#include "vfs_api.h"
+extern "C" {
+  #include "pfs.h"
+}
 
 
 using namespace fs;
@@ -142,4 +145,4 @@ bool F_PSRam::exists(const String& path)
 }
 
 
-F_PSRam PSRamFS = F_PSRam(FSImplPtr(new PSRamFSImpl()));
+F_PSRam PSRamFS = F_PSRam(FSImplPtr(new VFSImpl()));
