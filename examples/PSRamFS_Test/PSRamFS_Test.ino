@@ -80,16 +80,25 @@ void readFile(fs::FS &fs, const char * path)
     log_n("- read from file:");
     Serial.println();
 
+    size_t lastPosition = -1; // debug: avoid endless loop on position()
+
     while( file.available() ) {
+      size_t position = file.position();
       #if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
         int out = file.read();
         char outchar[2] = {(char)out,0};
-        log_d("Position: %4d, Char : %s, Hex: %02x", file.position(), outchar, out);
+        log_d("Position: %4d, Char : %s, Hex: %02x", position, outchar, out);
       #else
        //log_d( "Out: %02x", out );
        //Serial.write(out);
         Serial.write( file.read() );
       #endif
+      if( lastPosition == position ) {
+        log_d("Position stall at : %4d, Char : %s, Hex: %02x -- breaking loop", position, outchar, out);
+        break;
+      } else {
+        lastPosition = position;
+      }
     }
   }
   Serial.println("\n");

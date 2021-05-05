@@ -32,18 +32,17 @@ extern "C" {
 #endif
 
 
-
-/**
- *Configuration structure for esp_vfs_pfs_register.
- */
-typedef struct {
-    const char *base_path;            /**< Mounting point. */
-    const char *partition_label;      /**< Label of partition to use. */
-    uint8_t format_if_mount_failed:1; /**< Format the file system if it fails to mount. */
-    uint8_t dont_mount:1;             /**< Don't attempt to mount or format. Overrides format_if_mount_failed */
+// Configuration structure for esp_vfs_pfs_register.
+typedef struct
+{
+  const char *base_path;            /**< Mounting point. */
+  const char *partition_label;      /**< Label of partition to use. */
+  uint8_t format_if_mount_failed:1; /**< Format the file system if it fails to mount. */
+  uint8_t dont_mount:1;             /**< Don't attempt to mount or format. Overrides format_if_mount_failed */
 } esp_vfs_pfs_conf_t;
 
 
+// File structure for pfs
 typedef struct
 {
   int file_id;
@@ -55,23 +54,16 @@ typedef struct
 } pfs_file_t;
 
 
+// Directory structure for pfs
 typedef struct
 {
   int dir_id;
   char * name;
 } pfs_dir_t;
 
-
-typedef struct pfs_stat_t
+// Seek modes
+typedef enum
 {
-  unsigned int  st_mode;
-  unsigned long st_mtime;
-  unsigned long st_size;
-  const char*   st_name;
-} pfs_stat_t;
-
-
-typedef enum {
   pfs_seek_set = 0,
   pfs_seek_cur = 1,
   pfs_seek_end = 2
@@ -86,7 +78,8 @@ int         pfs_get_block_size();
 void        pfs_set_block_size(size_t block_size);
 void        pfs_free();
 void        pfs_clean_files();
-int         pfs_stat( const char * path, const void *_stat );
+//int         pfs_stat( const char * path, const void *_stat );
+int         pfs_stat( const char * path, struct stat * stat_ );
 pfs_file_t* pfs_fopen( const char * path, const char* mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);

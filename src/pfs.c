@@ -98,7 +98,8 @@ int         pfs_next_file_avail();
 int         pfs_next_dir_avail();
 int         pfs_find_file( const char* path );
 int         pfs_find_dir( const char* path );
-int         pfs_stat( const char * path, const void *_stat );
+//int         pfs_stat( const char * path, const void *_stat );
+int         pfs_stat( const char * path, struct stat * stat_ );
 pfs_file_t* pfs_fopen( const char * path, const char* mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
@@ -355,17 +356,17 @@ size_t pfs_used_bytes()
 }
 
 
-int pfs_stat( const char * path, const void *_stat )
+int pfs_stat( const char * path, struct stat * stat_ )
 {
-  struct pfs_stat_t* stat_;
-  stat_ = (pfs_stat_t*)_stat;
+  assert(path);
+  memset(stat_, 0, sizeof(struct stat));
+
   stat_->st_mode = DT_UNKNOWN;
 
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
     stat_->st_size = pfs_files[file_id]->size;
-    stat_->st_mode = DT_REG;
-    stat_->st_name = pfs_files[file_id]->name;
+    stat_->st_mode = S_IFREG;//DT_REG;
     ESP_LOGV(TAG, "stating for DT_REG(%s) success", path );
     return 0;
   } else {
@@ -374,7 +375,8 @@ int pfs_stat( const char * path, const void *_stat )
 
   int dir_id = pfs_find_dir( path );
   if( dir_id > -1 ) {
-    stat_->st_mode = DT_DIR;
+    stat_->st_size = 0;
+    stat_->st_mode = S_IFDIR;//DT_DIR;
     ESP_LOGV(TAG, "stating for DT_DIR(%s) success", path );
     return 0;
   } else {

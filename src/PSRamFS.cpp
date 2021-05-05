@@ -52,10 +52,9 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
     log_w("No psram found, using heap");
     pfs_set_psram( false );
     pfs_set_partition_size( 100*1024 /*0.25 * ESP.getFreeHeap()*/ );
-    //partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreeHeap();
   } else {
+    pfs_set_psram( true );
     pfs_set_partition_size( FPSRAM_PARTITION_SIZE * ESP.getFreePsram() );
-    //partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreePsram();
   }
 
   esp_vfs_pfs_conf_t conf = {
@@ -107,7 +106,6 @@ bool F_PSRam::format(bool full_wipe, char* partitionLabel)
 size_t F_PSRam::totalBytes()
 {
   return pfs_get_partition_size();
-  //return partitionSize;
 }
 
 
