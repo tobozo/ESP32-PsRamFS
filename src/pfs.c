@@ -106,7 +106,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
 int         pfs_fflush(pfs_file_t * stream);
-int         pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode );
+int         pfs_fseek( pfs_file_t * stream, unsigned long offset, pfs_seek_mode mode );
 size_t      pfs_ftell( pfs_file_t * stream );
 void        pfs_fclose( pfs_file_t * stream );
 int         pfs_unlink( const char * path );
@@ -349,6 +349,7 @@ size_t pfs_used_bytes()
     for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_files[i]->name != NULL ) {
         totalsize += pfs_files[i]->size;
+        ESP_LOGV(TAG, "Adding %d bytes from %s (total=%d)", pfs_files[i]->size, pfs_files[i]->name, totalsize );
       }
     }
   }
@@ -358,8 +359,9 @@ size_t pfs_used_bytes()
 
 int pfs_stat( const char * path, struct stat * stat_ )
 {
-  assert(path);
+  //assert(path);
   memset(stat_, 0, sizeof(struct stat));
+  if(path == NULL) return 1;
 
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
@@ -403,6 +405,7 @@ char *pfs_flags_conv_str(int m)
   if( m & O_RDWR ) return "r+";
   if( m & O_WRONLY ) return "a";
   if( m & O_RDWR ) return "a+";
+  if( m & O_RDONLY ) return "r";
   return "r";
 }
 
@@ -511,9 +514,9 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 
   //assert((stream->flags & PFS_O_RDONLY) == PFS_O_RDONLY);
 
-  if( ( stream->index + to_read ) > stream->size ) {
+  if( ( stream->index + to_read ) >= stream->size ) {
     if( stream->index < stream->size ) {
-      to_read = stream->size - (stream->index+1);
+      to_read = stream->size - stream->index;
       if( to_read == 0 ) return 0;
     } else {
       ESP_LOGE(TAG, "Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
@@ -542,8 +545,8 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
 
     if( stream->bytes == NULL ) {
       if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
-        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting");
-        return 0;
+        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting (partition size=%d, used_bytes=%d, needs %d bytes)", pfs_partition_size, used_bytes, used_bytes + pfs_alloc_block_size );
+        return -1;
       }
       ESP_LOGD(TAG, "Allocating %d bytes to write %d bytes", pfs_alloc_block_size, to_write );
       stream->bytes = (char*)pfs_calloc( 1, pfs_alloc_block_size /*, sizeof(char) */);
@@ -552,8 +555,8 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
     }
     while( stream->index + to_write >= stream->memsize ) {
       if( pfs_partition_size > 0 && used_bytes + pfs_alloc_block_size > pfs_partition_size ) {
-        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting");
-        return 0;
+        ESP_LOGE(TAG, "Not enough memory left, cowardly aborting (partition size=%d, used_bytes=%d wants %d bytes)", pfs_partition_size, used_bytes, used_bytes + pfs_alloc_block_size );
+        return -1;
       }
       ESP_LOGD(TAG, "[bytes free:%d] Reallocating %d bytes to write %d bytes at index %d/%d => %d", pfs_free_mem(), pfs_alloc_block_size, to_write, stream->index, stream->size, stream->index + pfs_alloc_block_size  );
       ESP_LOGV(TAG, "stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->bytes, stream->index + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
@@ -579,7 +582,7 @@ int pfs_fflush(pfs_file_t * stream)
 }
 
 
-int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
+int pfs_fseek( pfs_file_t * stream, unsigned long offset, pfs_seek_mode mode )
 {
   switch( mode ) {
     case pfs_seek_set: // 0
@@ -592,7 +595,7 @@ int pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode )
       }
       return -1;
     case pfs_seek_cur: // 1
-      if( stream->index + offset < stream->size ) {
+      if( stream->index + offset <= stream->size ) {
         stream->index += offset;
         ESP_LOGV(TAG, "Seeking mode #%d (seekcur) with offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
         break;
@@ -668,18 +671,22 @@ int pfs_unlink( const char * path )
 
 void pfs_free()
 {
-  for( int i=0; i<pfs_max_items; i++ ) {
-    if( pfs_files[i]->name != NULL ) {
-      pfs_unlink( pfs_files[i]->name );
-      free( pfs_files[i] );
+  if( pfs_files != NULL ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
+      if( pfs_files[i]->name != NULL ) {
+        pfs_unlink( pfs_files[i]->name );
+        free( pfs_files[i] );
+      }
     }
   }
-  for( int i=0; i<pfs_max_items; i++ ) {
-    if( pfs_dirs[i]->name != NULL ) {
-      //pfs_unlink( pfs_files[i]->name );
-      free( pfs_dirs[i]->name );
-      pfs_dirs[i]->name = NULL;
-      free( pfs_dirs[i] );
+  if( pfs_dirs != NULL ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
+      if( pfs_dirs[i]->name != NULL ) {
+        //pfs_unlink( pfs_files[i]->name );
+        free( pfs_dirs[i]->name );
+        pfs_dirs[i]->name = NULL;
+        free( pfs_dirs[i] );
+      }
     }
   }
   if( pfs_files != NULL ) free( pfs_files );
@@ -963,6 +970,8 @@ esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
 
   ESP_LOGD(TAG, "Successfully registered PSramFS to \"%s\"", conf->base_path);
 
+  pfs_init_files();
+
   return ESP_OK;
 }
 
@@ -989,7 +998,7 @@ esp_err_t esp_vfs_pfs_unregister(const char* base_path)
   esp_err_t err = esp_vfs_unregister( base_path );
 
   if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to unregister \"%s\"", base_path);
+    ESP_LOGE(TAG, "Failed to unregister \"%s\" (err=%d)", base_path, err);
     return err;
   }
 

@@ -109,7 +109,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
 int         pfs_fflush(pfs_file_t * stream);
-int         pfs_fseek( pfs_file_t * stream, long offset, pfs_seek_mode mode );
+int         pfs_fseek( pfs_file_t * stream, unsigned long offset, pfs_seek_mode mode );
 size_t      pfs_ftell( pfs_file_t * stream );
 void        pfs_fclose( pfs_file_t * stream );
 int         pfs_unlink( const char * path );

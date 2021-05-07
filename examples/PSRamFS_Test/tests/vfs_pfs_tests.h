@@ -58,7 +58,7 @@ void test_string_replace(void) {
 #define TEST_ESP_ERR(err, rc) TEST_ASSERT_EQUAL_HEX32(err, rc)
 
 #define pfs_partition_label "psram"
-#define pfs_base_path "/" pfs_partition_label
+#define pfs_base_path "/psram"
 
 static const char pfs_test_partition_label[] = pfs_partition_label;
 static const char pfs_test_hello_str[]       = "Hello, World!\n";
@@ -92,7 +92,7 @@ static void test_setup(void) {
 
 
 static void test_teardown(void){
-  TEST_ESP_OK(esp_vfs_pfs_unregister(pfs_test_partition_label));
+  TEST_ESP_OK(esp_vfs_pfs_unregister(pfs_base_path));
   TEST_ASSERT_TRUE( heap_caps_check_integrity_all(true) );
   printf("Test teardown complete.\n");
 }
@@ -109,11 +109,15 @@ static void test_pfs_create_file_with_text(const char* name, const char* text)
 }
 
 
+static void test_setup_teardown(void)
+{
+  test_setup();
+  test_teardown();
+}
+
+
 static void test_can_format_mounted_partition(void)
 {
-  // Mount LittleFS, create file, format, check that the file does not exist.
-  //const esp_partition_t* part = get_test_data_partition();
-  //TEST_ASSERT_NOT_NULL(part);
   test_setup();
   test_pfs_create_file_with_text(pfs_test_filename, pfs_test_hello_str);
   printf("Deleting \"%s\" via formatting fs.\n", pfs_test_filename);
@@ -133,19 +137,21 @@ static void test_ftell(void)
   FILE *fp = fopen(pfs_test_filename, "a+");
   TEST_ASSERT_NOT_NULL(fp);
 
-  char char_buf[4];
-  void *ret = fgets(char_buf, 4, fp);
-  TEST_ASSERT_NOT_NULL(ret);
+  //char char_buf[4];
+  //void *ret = fgets(char_buf, 4, fp);
+  //TEST_ASSERT_NOT_NULL(ret);
 
   int file_len = strlen (pfs_test_hello_str);
-
 
   TEST_ASSERT_TRUE(fputs(pfs_test_hello_str, fp) != EOF);
 
   file_len += strlen (pfs_test_hello_str);
 
-  long off = ftell (fp);
+  long off = ftell(fp);
+
+  printf("ftell() returns %ld when %d is expected\n", off, file_len );
   TEST_ASSERT_TRUE(off == file_len);
+
   test_teardown();
 }
 

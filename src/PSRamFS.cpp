@@ -58,7 +58,7 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
 
   esp_vfs_pfs_conf_t conf = {
     .base_path = basePath,
-    .partition_label = partitionLabel,
+    .partition_label = partitionLabel, // ignored ?
     .format_if_mount_failed = false
   };
 

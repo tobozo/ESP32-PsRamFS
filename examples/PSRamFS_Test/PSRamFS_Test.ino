@@ -6,7 +6,7 @@
 
 // You don't really need to format PSRamFS unless previously used
 #define FORMAT_PSRAMFS true
-//#define UNIT_TESTS
+#define UNIT_TESTS
 
 
 
@@ -32,8 +32,7 @@ void setup()
     delay(2000); // service delay
     UNITY_BEGIN();
 
-    //RUN_TEST(test_setup());
-    //RUN_TEST(test_teardown());
+    RUN_TEST(test_setup_teardown);
     RUN_TEST(test_can_format_mounted_partition);
     RUN_TEST(test_ftell);
     RUN_TEST(test_stat_fstat);
@@ -118,20 +117,21 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
 void readFile(fs::FS &fs, const char * path)
 {
   delay(100);
-  log_n("Reading file: %s", path);
+  ESP_LOGD(TAG, "Will open file for reading: %s", path);
 
   File file = fs.open(path);
   if(!file || file.isDirectory()){
-    log_e("- failed to open file for reading\n");
+    ESP_LOGE(TAG, "Failed to open file for reading : %s", path);
     return;
   }
 
   if( !file.available() ) {
-    log_e("- CANNOT read from file");
+    ESP_LOGE(TAG, "CANNOT read from file: %s", path);
   } else {
-    log_n("- read from file:");
-    Serial.println();
+    ESP_LOGD(TAG, "Will read from file: %s", path);
+
     delay(100);
+    Serial.println();
 
     int32_t lastPosition = -1;
     while( file.available() ) {
@@ -149,7 +149,7 @@ void readFile(fs::FS &fs, const char * path)
   }
   Serial.println("\n");
   file.close();
-  log_n("Read done\n");
+  ESP_LOGD(TAG, "Read done: %s", path);
 }
 
 
@@ -158,20 +158,20 @@ void writeFile(fs::FS &fs, const char * path, const char * message)
 {
   delay(100);
 
-  log_n("Will truncate %s using %s mode", path, FILE_WRITE );
+  ESP_LOGD(TAG, "Will truncate %s using %s mode", path, FILE_WRITE );
 
   File file = fs.open(path, FILE_WRITE);
 
   if(!file){
-    log_e("Failed to open file %s for writing", path);
+    ESP_LOGE(TAG, "Failed to open file %s for writing", path);
     return;
   } else {
-    log_n("Truncated file: %s", path);
+    ESP_LOGD(TAG, "Truncated file: %s", path);
   }
-  if( file.write( (const uint8_t*)message, strlen(message)+1 ) ){
-    log_n("- data written");
+  if( file.write( (const uint8_t*)message, strlen(message)+1 ) ) {
+    ESP_LOGD(TAG, "- data written");
   } else {
-    log_e("- write failed\n");
+    ESP_LOGE(TAG, "- write failed\n");
   }
   file.close();
 }
