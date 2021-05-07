@@ -47,6 +47,7 @@
 #include <sys/fcntl.h>
 #include <sys/lock.h>
 #include <sys/param.h>
+#include "fcntl.h" // for macros AT_FDCWD / EBADF
 
 #include <string.h>
 
@@ -100,7 +101,8 @@ int         pfs_find_file( const char* path );
 int         pfs_find_dir( const char* path );
 //int         pfs_stat( const char * path, const void *_stat );
 int         pfs_stat( const char * path, struct stat * stat_ );
-pfs_file_t* pfs_fopen( const char * path, const char* mode );
+//pfs_file_t* pfs_fopen( const char * path, const char* mode );
+pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
 int         pfs_fflush(pfs_file_t * stream);
@@ -125,28 +127,29 @@ bool        pfs_get_psram();
 size_t      pfs_used_bytes();
 
 
+static char pfs_flag_str[3] = {0,0,0};
+char *pfs_flags_conv_str(int m);
+int pfs_flags_conv(int m);
 
+int     vfs_pfs_fopen( const char * path, int flags, int mode );
+ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
+ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
+int     vfs_pfs_close(int fd);
+int     vfs_pfs_fsync(int fd);
+int     vfs_pfs_stat( const char * path, struct stat * st);
+int     vfs_pfs_fstat( int fd, struct stat * st);
+off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
+int     vfs_pfs_unlink(const char *path);
+int     vfs_pfs_rename( const char *src, const char *dst);
+int     vfs_pfs_rmdir(const char* name);
+int     vfs_pfs_mkdir(const char* name, mode_t mode);
+DIR*    vfs_pfs_opendir(const char* name);
+struct dirent* vfs_pfs_readdir(DIR* pdir);
+int     vfs_pfs_closedir(DIR* pdir);
 
-static char pfs_flag[3] = {0,0,0};
-char *pfs_flags_conv(int m);
-
-static int     vfs_pfs_fopen( const char * path, int flags, int mode );
-static ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
-static ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
-static int     vfs_pfs_close(int fd);
-static int     vfs_pfs_fsync(int fd);
-static int     vfs_pfs_stat( const char * path, struct stat * st);
-static int     vfs_pfs_fstat( int fd, struct stat * st);
-static off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
-static int     vfs_pfs_unlink(const char *path);
-static int     vfs_pfs_rename( const char *src, const char *dst);
-static int     vfs_pfs_rmdir(const char* name);
-static int     vfs_pfs_mkdir(const char* name, mode_t mode);
-static DIR*    vfs_pfs_opendir(const char* name);
-static struct dirent* vfs_pfs_readdir(DIR* pdir);
-static int     vfs_pfs_closedir(DIR* pdir);
-
-esp_err_t  esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
+esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf);
+esp_err_t esp_vfs_pfs_format(const char* partition_label);
+esp_err_t esp_vfs_pfs_unregister(const char* base_path);
 
 
 
@@ -358,13 +361,17 @@ int pfs_stat( const char * path, struct stat * stat_ )
   assert(path);
   memset(stat_, 0, sizeof(struct stat));
 
-  stat_->st_mode = DT_UNKNOWN;
-
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
+    stat_->st_ino     = file_id;
     stat_->st_size    = pfs_files[file_id]->size;
-    stat_->st_blksize = pfs_files[file_id]->size+1;
+    stat_->st_blksize = pfs_alloc_block_size;
+    stat_->st_blocks  = (pfs_files[file_id]->size/pfs_alloc_block_size) + 1;
     stat_->st_mode    = S_IFREG;//DT_REG;
+    // pfs_files[file_id]->flags |=
+    // pfs_files[file_id]->flags &= ~
+    // pfs_files[file_id]->flags &= ~PFS_F_WRITING;
+    // pfs_files[file_id]->flags |= PFS_F_DIRTY;
     ESP_LOGV(TAG, "stating for DT_REG(%s) success (size=%d)", path, pfs_files[file_id]->size );
     return 0;
   } else {
@@ -381,22 +388,60 @@ int pfs_stat( const char * path, struct stat * stat_ )
     ESP_LOGV(TAG, "stating for DT_DIR(%s) no pass", path );
   }
 
+  //stat_->st_mode = DT_UNKNOWN;
+
   return 1;
 }
 
 
-pfs_file_t* pfs_fopen( const char * path, const char* mode )
+
+
+char *pfs_flags_conv_str(int m)
+{
+  if( (m & O_WRONLY) && (m & O_TRUNC) ) return "w";
+  if( (m & O_RDWR ) && (m & O_TRUNC) ) return "w+";
+  if( m & O_RDWR ) return "r+";
+  if( m & O_WRONLY ) return "a";
+  if( m & O_RDWR ) return "a+";
+  return "r";
+}
+
+
+int pfs_flags_conv(int m)
+{
+  int pfs_flags = 0;
+  if (m == O_APPEND) {ESP_LOGV(TAG, "O_APPEND"); pfs_flags |= PFS_O_APPEND;}
+  if (m == O_RDONLY) {ESP_LOGV(TAG, "O_RDONLY"); pfs_flags |= PFS_O_RDONLY;}
+  if (m & O_WRONLY)  {ESP_LOGV(TAG, "O_WRONLY"); pfs_flags |= PFS_O_WRONLY;}
+  if (m & O_RDWR)    {ESP_LOGV(TAG, "O_RDWR");   pfs_flags |= PFS_O_RDWR;}
+  if (m & O_EXCL)    {ESP_LOGV(TAG, "O_EXCL");   pfs_flags |= PFS_O_EXCL;}
+  if (m & O_CREAT)   {ESP_LOGV(TAG, "O_CREAT");  pfs_flags |= PFS_O_CREAT;}
+  if (m & O_TRUNC)   {ESP_LOGV(TAG, "O_TRUNC");  pfs_flags |= PFS_O_TRUNC;}
+  return pfs_flags;
+}
+
+
+
+pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
 {
 
   if( path == NULL ) {
     ESP_LOGE(TAG, "Invalid path");
     return NULL;
   } else {
-    ESP_LOGV(TAG, "Valid path :%s", path );
+    ESP_LOGV(TAG, "Valid path :%s, flags = 0x%04x, mode = 0x%04x", path, flags, fmode );
   }
 
+  char *mode = pfs_flags_conv_str(flags);
+  int newflags = pfs_flags_conv(flags);
+
   int file_id = pfs_find_file( path );
+
   if( file_id > -1 ) {
+
+    ESP_LOGV(TAG, "Old flags: 0x%08x, New flags: 0x%08x", pfs_files[file_id]->flags, newflags );
+    pfs_files[file_id]->flags = newflags;
+
     // existing file
     if( mode ) {
       switch( mode[0] ) {
@@ -425,6 +470,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
       }
     }
     ESP_LOGD(TAG, "file exists: %s (mode %s)", path, mode);
+    //pfs_files[file_id]
     return pfs_files[file_id];
   }
 
@@ -437,7 +483,7 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
       ESP_LOGE(TAG, "alloc fail!");
       return NULL;
     }
-    if( pfs_files[fileslot]->name != NULL ) {
+    if( pfs_files[fileslot]->name != NULL ) { // uh-oh this should not happen
       ESP_LOGE(TAG, "Name from file slot #%d is now null, freeing", fileslot);
       free( pfs_files[fileslot]->name );
     }
@@ -447,8 +493,8 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size  = 0;
     pfs_files[fileslot]->file_id = fileslot;
-
-    ESP_LOGD(TAG, "file created: %s (mode %s)", path, mode);
+    pfs_files[fileslot]->flags = newflags;
+    ESP_LOGD(TAG, "file created: %s (mode: %s, flags: 0x%08x)", path, mode, newflags);
     return pfs_files[fileslot];
   }
   ESP_LOGE(TAG, "can't open: %s (mode %s)", path, mode);
@@ -456,16 +502,22 @@ pfs_file_t* pfs_fopen( const char * path, const char* mode )
 }
 
 
+
+
+
 size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 {
   size_t to_read = size*count;
+
+  //assert((stream->flags & PFS_O_RDONLY) == PFS_O_RDONLY);
+
   if( ( stream->index + to_read ) > stream->size ) {
     if( stream->index < stream->size ) {
       to_read = stream->size - (stream->index+1);
       if( to_read == 0 ) return 0;
     } else {
       ESP_LOGE(TAG, "Attempted to read %d out of bounds bytes at index %d of %d", to_read, stream->index, stream->size );
-      return 1;
+      return -1;
     }
   }
   memcpy( buf, &stream->bytes[stream->index], to_read );
@@ -605,6 +657,7 @@ int pfs_unlink( const char * path )
     pfs_files[file_id]->size = 0;
     pfs_files[file_id]->memsize = 0;
     pfs_files[file_id]->index = 0;
+    pfs_files[file_id]->file_id = -1;
     ESP_LOGW(TAG, "Path %s unlinked successfully", path);
     return 0;
   }
@@ -621,15 +674,26 @@ void pfs_free()
       free( pfs_files[i] );
     }
   }
-  free( pfs_files );
+  for( int i=0; i<pfs_max_items; i++ ) {
+    if( pfs_dirs[i]->name != NULL ) {
+      //pfs_unlink( pfs_files[i]->name );
+      free( pfs_dirs[i]->name );
+      pfs_dirs[i]->name = NULL;
+      free( pfs_dirs[i] );
+    }
+  }
+  if( pfs_files != NULL ) free( pfs_files );
+  if( pfs_dirs  != NULL ) free( pfs_dirs );
 }
 
 
 void pfs_clean_files()
 {
-  for( int i=0; i<pfs_max_items; i++ ) {
-    if( pfs_files[i]->name != NULL ) {
-      pfs_unlink( pfs_files[i]->name );
+  if( pfs_files != NULL ) {
+    for( int i=0; i<pfs_max_items; i++ ) {
+      if( pfs_files[i]->name != NULL ) {
+        pfs_unlink( pfs_files[i]->name );
+      }
     }
   }
 }
@@ -743,24 +807,13 @@ void pfs_rewinddir( pfs_dir_t * dir )
 
 
 
-char *pfs_flags_conv(int m)
-{
-  memset( pfs_flag, 0, 3 );
-  ESP_LOGD(TAG, "flag = 0x%04x", m );
-  if (m == O_APPEND) {ESP_LOGV(TAG, "O_APPEND"); return "a+";}
-  if (m == O_RDONLY) {ESP_LOGV(TAG, "O_RDONLY"); return "r";}
-  if (m & O_WRONLY)  {ESP_LOGV(TAG, "O_WRONLY"); return "w";}
-  if (m & O_RDWR)    {ESP_LOGV(TAG, "O_RDWR");   return "r+";}
-  if (m & O_EXCL)    {ESP_LOGV(TAG, "O_EXCL");   return "w";}
-  if (m & O_CREAT)   {ESP_LOGV(TAG, "O_CREAT");  return "w";}
-  if (m & O_TRUNC)   {ESP_LOGV(TAG, "O_TRUNC");  return "w";}
-  return pfs_flag;
-}
 
 
-static int vfs_pfs_fopen( const char * path, int flags, int mode )
+
+int vfs_pfs_fopen( const char * path, int flags, int mode )
 {
-  pfs_file_t* tmp = pfs_fopen( path, pfs_flags_conv(mode) );
+
+  pfs_file_t* tmp = pfs_fopen( path, flags, mode );
   if( tmp != NULL ) {
     return tmp->file_id;
   }
@@ -768,34 +821,34 @@ static int vfs_pfs_fopen( const char * path, int flags, int mode )
 }
 
 
-static ssize_t vfs_pfs_read( int fd, void * dst, size_t size)
+ssize_t vfs_pfs_read( int fd, void * dst, size_t size)
 {
   if( pfs_files[fd] == NULL ) return 0;
   return pfs_fread( dst, size, 1, pfs_files[fd] );
 }
 
 
-static ssize_t vfs_pfs_write( int fd, const void * data, size_t size)
+ssize_t vfs_pfs_write( int fd, const void * data, size_t size)
 {
   if( pfs_files[fd] == NULL ) return 0;
   return pfs_fwrite( data, size, 1, pfs_files[fd] );
 }
 
 
-static int vfs_pfs_close(int fd)
+int vfs_pfs_close(int fd)
 {
   if( pfs_files[fd] == NULL ) return -1;
   pfs_fclose( pfs_files[fd] );
   return 0;
 }
 
-static int vfs_pfs_fsync(int fd)
+int vfs_pfs_fsync(int fd)
 {
   // not sure it's needed with ramdisk
   return fd;
 }
 
-static int vfs_pfs_fstat( int fd, struct stat * st)
+int vfs_pfs_fstat( int fd, struct stat * st)
 {
   if( pfs_files[fd] == NULL ) return -1;
   int res = pfs_stat( pfs_files[fd]->name, st );
@@ -803,14 +856,14 @@ static int vfs_pfs_fstat( int fd, struct stat * st)
   return 0;
 }
 
-static int vfs_pfs_stat( const char * path, struct stat * st)
+int vfs_pfs_stat( const char * path, struct stat * st)
 {
   int res = pfs_stat( path, st );
   if( res == 1 ) return -1;
   return 0;
 }
 
-static off_t vfs_pfs_lseek(int fd, off_t offset, int mode)
+off_t vfs_pfs_lseek(int fd, off_t offset, int mode)
 {
 
   if( pfs_files[fd] == NULL ) return -1;
@@ -819,7 +872,7 @@ static off_t vfs_pfs_lseek(int fd, off_t offset, int mode)
   return -1;
 }
 
-static int vfs_pfs_unlink(const char *path)
+int vfs_pfs_unlink(const char *path)
 {
   int res = pfs_unlink( path ); // 0 = success, 1 = fail
   if( res == 1 ) return -1;
@@ -827,19 +880,19 @@ static int vfs_pfs_unlink(const char *path)
 }
 
 
-static int vfs_pfs_rename( const char *src, const char *dst)
+int vfs_pfs_rename( const char *src, const char *dst)
 {
   return pfs_rename( src, dst );
 }
 
 
-static int vfs_pfs_rmdir(const char* name)
+int vfs_pfs_rmdir(const char* name)
 {
   return pfs_rmdir( name );
 }
 
 
-static int vfs_pfs_mkdir(const char* name, mode_t mode)
+int vfs_pfs_mkdir(const char* name, mode_t mode)
 {
   int res = pfs_mkdir( name );
   if( res == 1 ) return -1;
@@ -847,21 +900,21 @@ static int vfs_pfs_mkdir(const char* name, mode_t mode)
 }
 
 
-static DIR* vfs_pfs_opendir(const char* name)
+DIR* vfs_pfs_opendir(const char* name)
 {
   pfs_dir_t* tmp = pfs_opendir( name );
   if( tmp == NULL ) return NULL;
   return (DIR*) tmp;
 }
 
-static struct dirent* vfs_pfs_readdir(DIR* pdir)
+struct dirent* vfs_pfs_readdir(DIR* pdir)
 {
   if( pfs_dirs[pdir->dd_vfs_idx] == NULL ) return NULL;
   struct dirent* tmp = pfs_readdir( pfs_dirs[pdir->dd_vfs_idx] );
   return tmp;
 }
 
-static int vfs_pfs_closedir(DIR* pdir)
+int vfs_pfs_closedir(DIR* pdir)
 {
   assert(pdir);
   if( pfs_dirs[pdir->dd_vfs_idx] == NULL ) return -1;
@@ -870,7 +923,7 @@ static int vfs_pfs_closedir(DIR* pdir)
 }
 
 
-static size_t vfs_pfs_ftell(FILE* stream)
+size_t vfs_pfs_ftell(FILE* stream)
 {
   return pfs_ftell( (pfs_file_t*)stream );
 }
@@ -881,13 +934,13 @@ esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
 
   assert(conf->base_path);
 
-  esp_vfs_t vfs = {
+  esp_vfs_t vfs_pfs = {
     .flags       = ESP_VFS_FLAG_DEFAULT,
     .open        = &vfs_pfs_fopen,
     .read        = &vfs_pfs_read,
     .write       = &vfs_pfs_write,
     .close       = &vfs_pfs_close,
-    .fsync       = &vfs_pfs_fsync,
+    //.fsync       = &vfs_pfs_fsync,
     .fstat       = &vfs_pfs_fstat,
     //.ftell       = NULL,
     .stat        = &vfs_pfs_stat,
@@ -901,7 +954,8 @@ esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
     .closedir    = &vfs_pfs_closedir, // TODO: implement this
   };
 
-  esp_err_t err = esp_vfs_register(conf->base_path, &vfs, NULL);
+  esp_err_t err = esp_vfs_register(conf->base_path, &vfs_pfs, NULL);
+
   if (err != ESP_OK) {
     ESP_LOGE(TAG, "Failed to register PSramFS to \"%s\"", conf->base_path);
     return err;
@@ -913,3 +967,33 @@ esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t* conf) {
 }
 
 
+
+esp_err_t esp_vfs_pfs_format(const char* base_path)
+{
+  ESP_LOGV(TAG, "Formatting \"%s\"",  base_path );
+
+  pfs_clean_files();
+
+  return ESP_OK;
+}
+
+
+
+esp_err_t esp_vfs_pfs_unregister(const char* base_path)
+{
+
+  assert(base_path);
+
+  ESP_LOGV(TAG, "Unregistering \"%s\"",  base_path );
+
+  esp_err_t err = esp_vfs_unregister( base_path );
+
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to unregister \"%s\"", base_path);
+    return err;
+  }
+
+  pfs_free();
+
+  return ESP_OK;
+}

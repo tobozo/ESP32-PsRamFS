@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#include <dirent.h>
 
 // Configuration structure for esp_vfs_pfs_register.
 typedef struct
@@ -51,7 +52,7 @@ typedef struct
   uint32_t size;
   uint32_t memsize;
   uint32_t index;
-  //uint32_t flags;
+  uint32_t flags;
 } pfs_file_t;
 
 
@@ -80,7 +81,7 @@ typedef enum  {
   PFS_O_EXCL   = 0x0200,    // Fail if a file already exists
   PFS_O_TRUNC  = 0x0400,    // Truncate the existing file to zero size
   PFS_O_APPEND = 0x0800,    // Move to end of file on every write
-/*
+
   // internally used flags
   PFS_F_DIRTY   = 0x010000, // File does not match storage
   PFS_F_WRITING = 0x020000, // File has been written since last flush
@@ -88,7 +89,7 @@ typedef enum  {
   PFS_F_ERRED   = 0x080000, // An error occured during write
   PFS_F_INLINE  = 0x100000, // Currently inlined in directory entry
   PFS_F_OPENED  = 0x200000, // File has been opened
-*/
+
 } pfs_open_flags;
 
 
@@ -103,7 +104,8 @@ void        pfs_free();
 void        pfs_clean_files();
 //int         pfs_stat( const char * path, const void *_stat );
 int         pfs_stat( const char * path, struct stat * stat_ );
-pfs_file_t* pfs_fopen( const char * path, const char* mode );
+//pfs_file_t* pfs_fopen( const char * path, const char* mode );
+pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
 int         pfs_fflush(pfs_file_t * stream);
@@ -122,6 +124,25 @@ bool        pfs_get_psram();
 size_t      pfs_used_bytes();
 void        pfs_set_partition_size( size_t size );
 size_t      pfs_get_partition_size();
+
+int     vfs_pfs_fopen( const char * path, int flags, int mode );
+ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
+ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
+int     vfs_pfs_close(int fd);
+int     vfs_pfs_fsync(int fd);
+int     vfs_pfs_stat( const char * path, struct stat * st);
+int     vfs_pfs_fstat( int fd, struct stat * st);
+off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
+int     vfs_pfs_unlink(const char *path);
+int     vfs_pfs_rename( const char *src, const char *dst);
+int     vfs_pfs_rmdir(const char* name);
+int     vfs_pfs_mkdir(const char* name, mode_t mode);
+DIR*    vfs_pfs_opendir(const char* name);
+struct dirent* vfs_pfs_readdir(DIR* pdir);
+int     vfs_pfs_closedir(DIR* pdir);
+
+esp_err_t esp_vfs_pfs_format(const char* partition_label);
+esp_err_t esp_vfs_pfs_unregister(const char* base_path );
 esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
 
 #ifdef __cplusplus

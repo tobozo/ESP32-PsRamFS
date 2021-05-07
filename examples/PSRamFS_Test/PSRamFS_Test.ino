@@ -2,8 +2,60 @@
 #include "PSRamFS.h"
 #include "pfs.h"
 
+//#include "test/test_pfs.h"
+
 // You don't really need to format PSRamFS unless previously used
 #define FORMAT_PSRAMFS true
+//#define UNIT_TESTS
+
+
+
+#ifdef UNIT_TESTS
+
+#include "tests/vfs_pfs_tests.h"
+
+void setup()
+{
+    Serial.begin(115200);
+    Serial.setDebugOutput(true);
+    Serial.println();
+/*
+    if(!PSRamFS.begin()){
+      log_e("PSRamFS Mount Failed, halting");
+      return;
+    }
+
+
+    log_n("Total space: %10u", PSRamFS.totalBytes());
+    log_n("Free space: %10u", PSRamFS.freeBytes());
+*/
+    delay(2000); // service delay
+    UNITY_BEGIN();
+
+    //RUN_TEST(test_setup());
+    //RUN_TEST(test_teardown());
+    RUN_TEST(test_can_format_mounted_partition);
+    RUN_TEST(test_ftell);
+    RUN_TEST(test_stat_fstat);
+/*
+    RUN_TEST(test_string_concat);
+    RUN_TEST(test_string_substring);
+    RUN_TEST(test_string_index_of);
+    RUN_TEST(test_string_equal_ignore_case);
+    RUN_TEST(test_string_to_upper_case);
+    RUN_TEST(test_string_replace);
+*/
+    UNITY_END(); // stop unit testing
+}
+
+void loop()
+{
+}
+
+#else
+
+
+
 
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
 {
@@ -79,11 +131,13 @@ void readFile(fs::FS &fs, const char * path)
   } else {
     log_n("- read from file:");
     Serial.println();
+    delay(100);
 
     int32_t lastPosition = -1;
     while( file.available() ) {
       size_t position = file.position();
-      Serial.write( file.read() );
+      char a = file.read();
+      Serial.write( a );
       if( lastPosition == position ) { // uh-oh
         Serial.println("Halting");
         while(1);
@@ -285,3 +339,6 @@ void loop()
 {
 
 }
+
+
+#endif
