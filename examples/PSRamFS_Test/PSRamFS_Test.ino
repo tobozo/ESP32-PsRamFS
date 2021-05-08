@@ -1,9 +1,7 @@
-#include "FS.h"
-#include "PSRamFS.h"
-#include "pfs.h"
+// PSRamFS Example sketch
+#include "PSRamFS.h" // https://github.com/tobozo/ESP32-PsRamFS
 
-#define FORMAT_PSRAMFS true
-#define UNIT_TESTS
+//#define UNIT_TESTS
 
 #ifdef UNIT_TESTS
   #include "tests/vfs_pfs_tests.h"
@@ -14,7 +12,7 @@
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
 {
   delay(100);
-  ESP_LOGD(TAG, "Listing directory: %s", dirname);
+  ESP_LOGW(TAG, "Listing directory: %s", dirname);
 
   // still hacky, directory support is incomplete in the driver
   struct PSRAMFILE
@@ -31,7 +29,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
   PSRAMFILE ** myFiles = (PSRAMFILE **)PSRamFS.getFiles();
 
   if( myFiles != NULL ) {
-    size_t myFilesCount = pfs_get_max_items();
+    size_t myFilesCount = PSRamFS.getFilesCount();
     if( myFilesCount > 0 ) {
       for( int i=0; i<myFilesCount; i++ ) {
         if( myFiles[i]->name != NULL ) {
@@ -42,7 +40,8 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
       ESP_LOGW(TAG, "Directory empty");
     }
   }
-/*
+  /*
+  // keeping this for later, when directory support is acceptable
   File root = fs.open(dirname);
   if(!root){
     ESP_LOGD(TAG, "- failed to open directory");
@@ -66,7 +65,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
     file = root.openNextFile();
   }
   */
-  ESP_LOGD(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes() ); ;
+  ESP_LOGW(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes() ); ;
 }
 
 
@@ -90,7 +89,7 @@ size_t getFileSize(fs::FS &fs, const char * path)
 void readFile(fs::FS &fs, const char * path)
 {
   delay(100);
-  ESP_LOGD(TAG, "Will open file for reading: %s", path);
+  ESP_LOGW(TAG, "Will open file for reading: %s", path);
 
   File file = fs.open(path);
   if(!file || file.isDirectory()){
@@ -122,7 +121,7 @@ void readFile(fs::FS &fs, const char * path)
   }
   Serial.println("\n");
   file.close();
-  ESP_LOGD(TAG, "Read done: %s", path);
+  ESP_LOGW(TAG, "Read done: %s", path);
 }
 
 
@@ -131,7 +130,7 @@ void writeFile(fs::FS &fs, const char * path, const char * message)
 {
   delay(100);
 
-  ESP_LOGD(TAG, "Will truncate %s using %s mode", path, FILE_WRITE );
+  ESP_LOGW(TAG, "Will truncate %s using %s mode", path, FILE_WRITE );
 
   File file = fs.open(path, FILE_WRITE);
 
@@ -146,15 +145,8 @@ void writeFile(fs::FS &fs, const char * path, const char * message)
   } else {
     ESP_LOGE(TAG, "- write failed\n");
   }
-  //size_t fileSize = file.size();
   file.close();
-/*
-  if( !fs.exists( path ) ) {
-    ESP_LOGE(TAG, "Write file failed!");
-  } else {
-    ESP_LOGD(TAG, "File size: %d bytes", fileSize );
-  }
-*/
+  ESP_LOGW(TAG, "Write done: %s", path);
 
 }
 
@@ -164,8 +156,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message)
 {
   delay(100);
 
-  ESP_LOGD(TAG, "Will append %s using %s mode", path, FILE_APPEND );
-  //ESP_LOGD(TAG, "Appending to file: %s", path);
+  ESP_LOGW(TAG, "Will append %s using %s mode", path, FILE_APPEND );
 
   File file = fs.open(path, FILE_APPEND);
   if(!file){
@@ -178,6 +169,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message)
     ESP_LOGE(TAG, "- append failed\n");
   }
   file.close();
+  ESP_LOGW(TAG, "Appending done: %s", path);
 }
 
 
@@ -185,7 +177,7 @@ void appendFile(fs::FS &fs, const char * path, const char * message)
 void renameFile(fs::FS &fs, const char * path1, const char * path2)
 {
   delay(100);
-  ESP_LOGD(TAG, "Renaming file %s to %s\r\n", path1, path2);
+  ESP_LOGW(TAG, "Renaming file %s to %s\r\n", path1, path2);
   if (fs.rename(path1, path2)) {
     ESP_LOGD(TAG, "- file renamed");
   } else {
@@ -198,7 +190,7 @@ void renameFile(fs::FS &fs, const char * path1, const char * path2)
 void deleteFile(fs::FS &fs, const char * path)
 {
   delay(100);
-  ESP_LOGD(TAG, "Deleting file: %s\r\n", path);
+  ESP_LOGW(TAG, "Deleting file: %s\r\n", path);
   if(fs.remove(path)){
     ESP_LOGD(TAG, "- file deleted");
   } else {
@@ -211,7 +203,7 @@ void deleteFile(fs::FS &fs, const char * path)
 void testFileIO(fs::FS &fs, const char * path)
 {
   delay(100);
-  ESP_LOGD(TAG, "Testing file I/O with %s\r\n", path);
+  ESP_LOGW(TAG, "Testing file I/O with %s\r\n", path);
 
   static uint8_t buf[512];
   size_t len = 0;
@@ -233,7 +225,7 @@ void testFileIO(fs::FS &fs, const char * path)
   }
   Serial.println("");
   uint32_t end = millis() - start;
-  ESP_LOGD(TAG, " - %u bytes written in %u ms\r\n", 1024 * 512, end);
+  ESP_LOGW(TAG, " - %u bytes written in %u ms\r\n", 1024 * 512, end);
   //Serial.print(".");
   file.close();
 
@@ -260,10 +252,10 @@ void testFileIO(fs::FS &fs, const char * path)
     }
     Serial.println("");
     end = millis() - start;
-    ESP_LOGD(TAG, "- %u bytes read in %u ms\r\n", flen, end);
+    ESP_LOGW(TAG, "- %u bytes read in %u ms\r\n", flen, end);
     file2.close();
   } else {
-    ESP_LOGD(TAG, "- failed to open file for reading");
+    ESP_LOGE(TAG, "- failed to open file for reading");
   }
 }
 
@@ -312,7 +304,7 @@ void seekLog( fs::File &file, const char* strref, size_t offset, int mode = 0 )
   if( a != strref[index] ) {
     ESP_LOGE(TAG, "Seek test error at offset %d / mode %d / index %d, expected 0x%02x '%s', got 0x%02x '%s'", offset, mode, index, strref[index], String(strref[index]).c_str(), a, String(a).c_str() );
   } else {
-    ESP_LOGD(TAG, "Seek test success at offset %d / mode %d, current index=%d", offset, mode, index );
+    ESP_LOGW(TAG, "Seek test success at offset %d / mode %d, current index=%d", offset, mode, index );
   }
 
   lastCursor = index;
@@ -363,9 +355,6 @@ void testSeek(fs::FS &fs)
     seekLog( file, message, random_index );
   }
 
-
-
-
 }
 
 
@@ -376,16 +365,14 @@ void setup()
   Serial.println();
 
   #ifdef UNIT_TESTS
-  // 1) testing the vfs layer from pfs.c
-  UNITY_BEGIN();
-  //RUN_TEST(test_stat_fstat); // this test partially fails but it's okay
-  RUN_TEST(test_can_format_mounted_partition);
-  //RUN_TEST(test_ftell); // this test normally fails
-  RUN_TEST(test_setup_teardown);
-  UNITY_END(); // stop unit testing
+    // - testing the vfs layer from pfs.c
+    UNITY_BEGIN();
+    RUN_TEST(test_can_format_mounted_partition);
+    RUN_TEST(test_setup_teardown);
+    UNITY_END(); // stop unit testing
   #endif
 
-  // 1) testing the fs::FS layer from PSRamFS.cpp
+  // - testing the fs::FS layer from PSRamFS.cpp
   if(!PSRamFS.begin()){
     ESP_LOGE(TAG, "PSRamFS Mount Failed");
     return;
