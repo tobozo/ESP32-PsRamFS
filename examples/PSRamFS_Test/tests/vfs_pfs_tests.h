@@ -1,6 +1,28 @@
+#ifdef UNIT_TESTS
+
+
 #include <Arduino.h>
 #include <unity.h>
 #include "pfs.h"
+
+// bring some signatures from the library
+int     vfs_pfs_fopen( const char * path, int flags, int mode );
+ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
+ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
+int     vfs_pfs_close(int fd);
+int     vfs_pfs_fsync(int fd);
+int     vfs_pfs_stat( const char * path, struct stat * st);
+int     vfs_pfs_fstat( int fd, struct stat * st);
+off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
+int     vfs_pfs_unlink(const char *path);
+int     vfs_pfs_rename( const char *src, const char *dst);
+int     vfs_pfs_rmdir(const char* name);
+int     vfs_pfs_mkdir(const char* name, mode_t mode);
+DIR*    vfs_pfs_opendir(const char* name);
+struct dirent* vfs_pfs_readdir(DIR* pdir);
+int     vfs_pfs_closedir(DIR* pdir);
+
+
 #include <sys/stat.h>
 #include <sys/fcntl.h> // for macros AT_FDCWD / EBADF
 #include <errno.h> // for 'errno' support
@@ -72,7 +94,7 @@ static void test_can_format_mounted_partition(void)
 }
 
 
-
+/*
 static void test_ftell(void)
 {
   test_setup();
@@ -108,7 +130,7 @@ static void stat_check(const char *path, struct stat *st)
 
 static void fstat_check(int fd, struct stat *st)
 {
-  /* Test for invalid fstat input (BZ #27559).  */
+  // Test for invalid fstat input (BZ #27559).
   TEST_ASSERT_EQUAL(fstat (AT_FDCWD, st), -1);
   TEST_ASSERT_EQUAL(errno, EBADF);
   TEST_ASSERT_EQUAL(fstat (fd, st), 0);
@@ -177,4 +199,6 @@ static void test_stat_fstat()
   ESP_LOGD(TAG, "[OK]");
 
 }
+*/
 
+#endif

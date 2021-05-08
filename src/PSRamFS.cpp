@@ -68,6 +68,7 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
       err = esp_vfs_pfs_register(&conf);
     }
   }
+
   if(err != ESP_OK){
     log_e("Mounting PSRAMFS failed! Error: %d", err);
     return false;

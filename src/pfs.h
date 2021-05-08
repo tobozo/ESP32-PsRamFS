@@ -32,35 +32,38 @@ extern "C" {
 #endif
 
 #include <dirent.h>
+#include <sys/fcntl.h>
+#include "esp_heap_caps.h"
+#include "esp32-hal-log.h"
 
 // Configuration structure for esp_vfs_pfs_register.
 typedef struct
 {
   const char *base_path;            /**< Mounting point. */
   const char *partition_label;      /**< Label of partition to use. */
-  uint8_t format_if_mount_failed:1; /**< Format the file system if it fails to mount. */
-  uint8_t dont_mount:1;             /**< Don't attempt to mount or format. Overrides format_if_mount_failed */
+  uint8_t format_if_mount_failed:1; /**< Ignored but kept for confusion. */
+  uint8_t dont_mount:1;             /**< Also ignored, how exciting! */
 } esp_vfs_pfs_conf_t;
 
 
 // File structure for pfs
 typedef struct
 {
-  int file_id;
-  char*    name;
-  char*    bytes;
-  uint32_t size;
-  uint32_t memsize;
-  uint32_t index;
-  uint32_t flags;
+  int      file_id; // file descriptor
+  char*    name;    // file path
+  char*    bytes;   // data
+  uint32_t size;    // number of bytes in data
+  uint32_t memsize; // size of allocated memory (hopefully more than size)
+  uint32_t index;   // read cursor position
+  uint32_t flags;   // file flags (not used yet)
 } pfs_file_t;
 
 
 // Directory structure for pfs
 typedef struct
 {
-  int dir_id;
-  char * name;
+  int    dir_id; // dir descriptor
+  char * name;   // dir path
 } pfs_dir_t;
 
 // Seek modes
@@ -93,56 +96,26 @@ typedef enum  {
 } pfs_open_flags;
 
 
+// those are exposed to the fs::PSRamFS layer
 
-pfs_file_t ** pfs_get_files();
-pfs_dir_t  ** pfs_get_dirs();
-int         pfs_get_max_items();
-void        pfs_set_max_items(size_t max_items);
-int         pfs_get_block_size();
-void        pfs_set_block_size(size_t block_size);
-void        pfs_free();
-void        pfs_clean_files();
-int         pfs_stat( const char * path, struct stat * stat_ );
-pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
-size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
-size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
-int         pfs_fflush(pfs_file_t * stream);
-int         pfs_fseek( pfs_file_t * stream, off_t offset, pfs_seek_mode mode );
-size_t      pfs_ftell( pfs_file_t * stream );
-void        pfs_fclose( pfs_file_t * stream );
-int         pfs_unlink( const char * path );
-int         pfs_rename( const char * from, const char * to );
-pfs_dir_t*  pfs_opendir( const char * path );
-int         pfs_mkdir( const char* path );
-struct dirent * pfs_readdir( pfs_dir_t * dir );
-void        pfs_closedir( pfs_dir_t * dir );
-void        pfs_rewinddir( pfs_dir_t * dir );
-void        pfs_set_psram( bool use );
-bool        pfs_get_psram();
-size_t      pfs_used_bytes();
-void        pfs_set_partition_size( size_t size );
-size_t      pfs_get_partition_size();
+pfs_file_t** pfs_get_files(); // returns pointer to the files array
+pfs_dir_t**  pfs_get_dirs();  // returns pointer to the directories array
+int          pfs_get_max_items(); // how many items in the files/directories arrays (same for both)
+void         pfs_set_max_items(size_t max_items); // applies to both files and directories
+size_t       pfs_get_block_size();
+void         pfs_set_block_size(size_t block_size); // smaller value = more calls to realloc()
+size_t       pfs_get_partition_size();
+void         pfs_set_partition_size( size_t size );
+bool         pfs_get_psram();
+void         pfs_set_psram( bool use );
+size_t       pfs_used_bytes();
+void         pfs_clean_files();
+void         pfs_free();
 
-int     vfs_pfs_fopen( const char * path, int flags, int mode );
-ssize_t vfs_pfs_read( int fd, void * dst, size_t size);
-ssize_t vfs_pfs_write( int fd, const void * data, size_t size);
-int     vfs_pfs_close(int fd);
-int     vfs_pfs_fsync(int fd);
-int     vfs_pfs_stat( const char * path, struct stat * st);
-int     vfs_pfs_fstat( int fd, struct stat * st);
-off_t   vfs_pfs_lseek(int fd, off_t offset, int mode);
-int     vfs_pfs_unlink(const char *path);
-int     vfs_pfs_rename( const char *src, const char *dst);
-int     vfs_pfs_rmdir(const char* name);
-int     vfs_pfs_mkdir(const char* name, mode_t mode);
-DIR*    vfs_pfs_opendir(const char* name);
-struct dirent* vfs_pfs_readdir(DIR* pdir);
-int     vfs_pfs_closedir(DIR* pdir);
-
-esp_err_t esp_vfs_pfs_format(const char* partition_label);
-esp_err_t esp_vfs_pfs_unregister(const char* base_path );
-esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
-esp_err_t esp_vfs_pfs_info(const char* partition_label, size_t *total_bytes, size_t *used_bytes);
+esp_err_t    esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
+esp_err_t    esp_vfs_pfs_format(const char* partition_label);
+esp_err_t    esp_vfs_pfs_info(const char* partition_label, size_t *total_bytes, size_t *used_bytes);
+esp_err_t    esp_vfs_pfs_unregister(const char* base_path );
 
 #ifdef __cplusplus
 }

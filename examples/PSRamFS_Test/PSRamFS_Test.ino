@@ -3,9 +3,11 @@
 #include "pfs.h"
 
 #define FORMAT_PSRAMFS true
+#define UNIT_TESTS
 
-#include "tests/vfs_pfs_tests.h"
-
+#ifdef UNIT_TESTS
+  #include "tests/vfs_pfs_tests.h"
+#endif
 
 
 
@@ -64,7 +66,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
     file = root.openNextFile();
   }
   */
-  ESP_LOGD(TAG, "Listing done\n");
+  ESP_LOGD(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes() ); ;
 }
 
 
@@ -373,6 +375,7 @@ void setup()
   Serial.setDebugOutput(true);
   Serial.println();
 
+  #ifdef UNIT_TESTS
   // 1) testing the vfs layer from pfs.c
   UNITY_BEGIN();
   //RUN_TEST(test_stat_fstat); // this test partially fails but it's okay
@@ -380,6 +383,7 @@ void setup()
   //RUN_TEST(test_ftell); // this test normally fails
   RUN_TEST(test_setup_teardown);
   UNITY_END(); // stop unit testing
+  #endif
 
   // 1) testing the fs::FS layer from PSRamFS.cpp
   if(!PSRamFS.begin()){
