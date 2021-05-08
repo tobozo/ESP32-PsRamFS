@@ -26,7 +26,6 @@
 
 
 #include "PSRamFS.h"
-//#include "PSRamFSImpl.h"
 #include "vfs_api.h"
 extern "C" {
   #include "pfs.h"
@@ -53,13 +52,13 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
     pfs_set_psram( false );
     pfs_set_partition_size( 100*1024 /*0.25 * ESP.getFreeHeap()*/ );
   } else {
-    pfs_set_psram( true );
+    //pfs_set_psram( true );
     pfs_set_partition_size( FPSRAM_PARTITION_SIZE * ESP.getFreePsram() );
   }
 
   esp_vfs_pfs_conf_t conf = {
     .base_path = basePath,
-    .partition_label = partitionLabel,
+    .partition_label = partitionLabel, // ignored ?
     .format_if_mount_failed = false
   };
 
@@ -69,6 +68,7 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
       err = esp_vfs_pfs_register(&conf);
     }
   }
+
   if(err != ESP_OK){
     log_e("Mounting PSRAMFS failed! Error: %d", err);
     return false;

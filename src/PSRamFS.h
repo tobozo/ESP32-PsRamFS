@@ -37,70 +37,65 @@
 namespace fs
 {
 
-class F_PSRam : public FS
-{
-  public:
-    F_PSRam(FSImplPtr impl);
-    bool begin(bool formatOnFail=false, const char * basePath="/psram", uint8_t maxOpenFiles=10, const char * partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
-    bool format(bool full_wipe = FPSRAM_WIPE_FULL, char* partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
-    size_t totalBytes();
-    size_t usedBytes();
-    size_t freeBytes();
-    void end();
-    bool exists(const char* path);
-    bool exists(const String& path);
-    virtual void **getFiles();
+  class F_PSRam : public FS
+  {
+    public:
+      F_PSRam(FSImplPtr impl);
+      bool begin(bool formatOnFail=false, const char * basePath="/psram", uint8_t maxOpenFiles=10, const char * partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
+      bool format(bool full_wipe = FPSRAM_WIPE_FULL, char* partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
+      size_t totalBytes();
+      size_t usedBytes();
+      size_t freeBytes();
+      void end();
+      bool exists(const char* path);
+      bool exists(const String& path);
+      virtual void **getFiles();
 
-  private:
-    size_t partitionSize = 0;
-};
+    private:
+      size_t partitionSize = 0;
+  };
 
 }
 
 extern fs::F_PSRam PSRamFS;
 
 
-
+// this is only a named helper, see arduino-BufferStream for write support
+// https://github.com/IndustrialShields/arduino-BufferStream
 class RomDiskStream : public Stream
 {
   public:
 
-    RomDiskStream( const unsigned char* arr, size_t size ) : my_byte_array(arr), my_byte_array_size(size), my_byte_array_index(0) { }
+    RomDiskStream( const unsigned char* arr, size_t size ) : byte_array(arr), byte_array_size(size), byte_array_index(0) { }
 
-    int available()
-    {
-      return (my_byte_array_index < my_byte_array_size ) ? 1 : 0;
+    int available() {
+      return (byte_array_index < byte_array_size ) ? 1 : 0;
     }
 
-    int read()
-    {
-      if( available() ) return my_byte_array[++my_byte_array_index];
+    int read() {
+      if( available() ) return byte_array[++byte_array_index];
       else return -1;
     }
 
-    size_t readBytes(char *buffer, size_t length)
-    {
-
-      if( ( my_byte_array_index + length ) > my_byte_array_size ) {
-        log_e("Attempted to read %d bytes, out of bounds at index %d of %d", length, my_byte_array_index, my_byte_array_size );
-        if( my_byte_array_index < my_byte_array_size ) {
-          length = my_byte_array_size - my_byte_array_index;
+    size_t readBytes(char *buffer, size_t length) {
+      if( ( byte_array_index + length ) > byte_array_size ) {
+        log_e("Attempted to read %d bytes, out of bounds at index %d of %d", length, byte_array_index, byte_array_size );
+        if( byte_array_index < byte_array_size ) {
+          length = byte_array_size - byte_array_index;
         } else {
           return 0;
         }
       }
-      memcpy( buffer, &my_byte_array[my_byte_array_index], length );
-      my_byte_array_index += length;
+      memcpy( buffer, &byte_array[byte_array_index], length );
+      byte_array_index += length;
       return length;
     }
 
-    int peek()
-    {
-      return my_byte_array[my_byte_array_index];
+    int peek() {
+      return byte_array[byte_array_index];
     }
 
-    size_t write(uint8_t)
-    {
+    size_t write(uint8_t) {
       return 0;
     }
 
@@ -108,9 +103,9 @@ class RomDiskStream : public Stream
 
   private:
 
-    const unsigned char* my_byte_array;
-    size_t   my_byte_array_size;
-    uint32_t my_byte_array_index;
+    const unsigned char* byte_array;
+    size_t   byte_array_size;
+    uint32_t byte_array_index;
 };
 
 
