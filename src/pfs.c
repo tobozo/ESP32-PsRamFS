@@ -478,9 +478,8 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
       switch( mode[0] ) {
         case 'a': // seek end
           ESP_LOGV(TAG, "Append to index :%d", pfs_files[file_id]->size );
-          if( pfs_files[file_id]->size > 0 ) {
-            pfs_files[file_id]->index = pfs_files[file_id]->size;
-          }
+          fseek( (FILE*)pfs_files[file_id], 0, pfs_seek_end );
+          pfs_files[file_id]->index = ftell( (FILE*)pfs_files[file_id] );
         break;
         case 'w': // truncate
           ESP_LOGV(TAG, "Truncate (mode=%s)", mode);
