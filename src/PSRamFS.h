@@ -50,6 +50,7 @@ namespace fs
       bool exists(const char* path);
       bool exists(const String& path);
       virtual void **getFiles();
+      virtual size_t getFilesCount();
 
     private:
       size_t partitionSize = 0;

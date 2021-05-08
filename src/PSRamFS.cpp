@@ -115,6 +115,12 @@ void ** F_PSRam::getFiles()
 }
 
 
+size_t F_PSRam::getFilesCount()
+{
+  return pfs_get_max_items();
+}
+
+
 size_t F_PSRam::usedBytes()
 {
   return pfs_used_bytes();
