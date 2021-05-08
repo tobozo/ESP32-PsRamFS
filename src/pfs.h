@@ -102,14 +102,12 @@ int         pfs_get_block_size();
 void        pfs_set_block_size(size_t block_size);
 void        pfs_free();
 void        pfs_clean_files();
-//int         pfs_stat( const char * path, const void *_stat );
 int         pfs_stat( const char * path, struct stat * stat_ );
-//pfs_file_t* pfs_fopen( const char * path, const char* mode );
 pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
 size_t      pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream );
 size_t      pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream);
 int         pfs_fflush(pfs_file_t * stream);
-int         pfs_fseek( pfs_file_t * stream, unsigned long offset, pfs_seek_mode mode );
+int         pfs_fseek( pfs_file_t * stream, off_t offset, pfs_seek_mode mode );
 size_t      pfs_ftell( pfs_file_t * stream );
 void        pfs_fclose( pfs_file_t * stream );
 int         pfs_unlink( const char * path );
@@ -144,6 +142,7 @@ int     vfs_pfs_closedir(DIR* pdir);
 esp_err_t esp_vfs_pfs_format(const char* partition_label);
 esp_err_t esp_vfs_pfs_unregister(const char* base_path );
 esp_err_t esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
+esp_err_t esp_vfs_pfs_info(const char* partition_label, size_t *total_bytes, size_t *used_bytes);
 
 #ifdef __cplusplus
 }

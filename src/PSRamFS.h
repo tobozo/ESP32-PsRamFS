@@ -37,23 +37,23 @@
 namespace fs
 {
 
-class F_PSRam : public FS
-{
-  public:
-    F_PSRam(FSImplPtr impl);
-    bool begin(bool formatOnFail=false, const char * basePath="/psram", uint8_t maxOpenFiles=10, const char * partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
-    bool format(bool full_wipe = FPSRAM_WIPE_FULL, char* partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
-    size_t totalBytes();
-    size_t usedBytes();
-    size_t freeBytes();
-    void end();
-    bool exists(const char* path);
-    bool exists(const String& path);
-    virtual void **getFiles();
+  class F_PSRam : public FS
+  {
+    public:
+      F_PSRam(FSImplPtr impl);
+      bool begin(bool formatOnFail=false, const char * basePath="/psram", uint8_t maxOpenFiles=10, const char * partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
+      bool format(bool full_wipe = FPSRAM_WIPE_FULL, char* partitionLabel = (char*)FPSRAM_PARTITION_LABEL);
+      size_t totalBytes();
+      size_t usedBytes();
+      size_t freeBytes();
+      void end();
+      bool exists(const char* path);
+      bool exists(const String& path);
+      virtual void **getFiles();
 
-  private:
-    size_t partitionSize = 0;
-};
+    private:
+      size_t partitionSize = 0;
+  };
 
 }
 

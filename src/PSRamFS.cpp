@@ -52,7 +52,7 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
     pfs_set_psram( false );
     pfs_set_partition_size( 100*1024 /*0.25 * ESP.getFreeHeap()*/ );
   } else {
-    pfs_set_psram( true );
+    //pfs_set_psram( true );
     pfs_set_partition_size( FPSRAM_PARTITION_SIZE * ESP.getFreePsram() );
   }
 
