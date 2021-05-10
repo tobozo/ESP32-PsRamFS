@@ -27,7 +27,7 @@
 #include "sdkconfig.h"
 
 // for SPIRAM detection support
-#ifdef ESP_IDF_VERSION_MAJOR // IDF 4+
+#ifdef CONFIG_IDF_CMAKE // IDF 4+
   #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
     #include "esp32/spiram.h"
   #elif CONFIG_IDF_TARGET_ESP32S2
@@ -592,9 +592,10 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
   } else {
     ESP_LOGV(TAG, "Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
   }
+  // There should be a check here to make sure this write does not exceed the file maximum size
   memcpy( &stream->bytes[stream->index], buf, to_write );
   stream->index += to_write;
-  stream->size  += to_write;
+  if (stream->index > stream->size) stream->size  = stream->index;
 
   return to_write;
 }
