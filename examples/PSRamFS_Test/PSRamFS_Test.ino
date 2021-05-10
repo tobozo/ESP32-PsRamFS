@@ -1,7 +1,7 @@
 // PSRamFS Example sketch
 #include "PSRamFS.h" // https://github.com/tobozo/ESP32-PsRamFS
 
-//#define UNIT_TESTS
+#define UNIT_TESTS
 
 #ifdef UNIT_TESTS
   #include "tests/vfs_pfs_tests.h"
@@ -65,7 +65,7 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
     file = root.openNextFile();
   }
   */
-  ESP_LOGW(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes() ); ;
+  ESP_LOGW(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d, heap: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes(), ESP.getFreePsram() ); ;
 }
 
 
@@ -315,20 +315,20 @@ void seekLog( fs::File &file, const char* strref, size_t offset, int mode = 0 )
 
 void testSeek(fs::FS &fs)
 {
-  const char* message = "abcdefghijklmnopqrstuvwxyz0123456789";
+  char message[] = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
   const char* path = "/test-seek.txt";
   size_t len = strlen(message);
 
   writeFile(PSRamFS, path, message);
 
-  File file = fs.open(path);
+  File file = fs.open(path, "r+");
   if(!file || file.isDirectory()){
     ESP_LOGE(TAG, "Failed to open file for reading : %s", path);
     return;
   }
 
   // success tests
-  seekLog( file, message, 0, 2 );  // seek end
+  seekLog( file, message, 0,  2 );  // seek end
   seekLog( file, message, 12, 2 ); // seek end with -12 offset
   // this test is expected to fail, but still set the cursor
   seekLog( file, message, 12345678, 2 ); // seek end (actually seek start with enormous offset)
@@ -350,11 +350,23 @@ void testSeek(fs::FS &fs)
     ESP_LOGE(TAG, "seek(seek_cur) failed to find EOF" );
   }
 
-  for(int i=0;i<=len;i++) {
+  for(int i=0;i<30;i++) {
     size_t random_index = random( len );
-    seekLog( file, message, random_index );
+    seekLog( file, message, random_index, 0 );
   }
 
+
+  for(int i=0;i<30;i++) {
+    size_t random_index = rand()%len;
+    char random_char = (rand()%(128-32))+31;
+    //ESP_LOGE(TAG, "random char : %s", String(random_char).c_str() );
+    file.seek( random_index );
+    file.write( message[random_index] );
+    //message[random_index] = random_char;
+    seekLog( file, message, random_index, 2 );
+  }
+
+  file.close();
 }
 
 
@@ -367,8 +379,14 @@ void setup()
   #ifdef UNIT_TESTS
     // - testing the vfs layer from pfs.c
     UNITY_BEGIN();
+
+    Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram() );
+
     RUN_TEST(test_can_format_mounted_partition);
     RUN_TEST(test_setup_teardown);
+
+    Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram() );
+
     UNITY_END(); // stop unit testing
   #endif
 

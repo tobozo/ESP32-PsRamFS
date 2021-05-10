@@ -455,7 +455,6 @@ int pfs_flags_conv(int m)
 
 pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
 {
-
   if( path == NULL ) {
     ESP_LOGE(TAG, "Invalid path");
     return NULL;
@@ -470,8 +469,8 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
 
   if( file_id > -1 ) {
 
-    ESP_LOGV(TAG, "Old flags: 0x%08x, New flags: 0x%08x", pfs_files[file_id]->flags, newflags );
-    pfs_files[file_id]->flags = newflags;
+    //ESP_LOGV(TAG, "Old flags: 0x%08x, New flags: 0x%08x", pfs_files[file_id]->flags, newflags );
+    //pfs_files[file_id]->flags = newflags;
 
     // existing file
     if( mode ) {
@@ -522,7 +521,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size  = 0;
     pfs_files[fileslot]->file_id = fileslot;
-    pfs_files[fileslot]->flags = newflags;
+    //pfs_files[fileslot]->flags = newflags;
     ESP_LOGD(TAG, "file created: %s (mode: %s, flags: 0x%08x)", path, mode, newflags);
     return pfs_files[fileslot];
   }
@@ -564,6 +563,11 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream)
 {
   size_t to_write = size*count;
+/*
+  if( stream->size > 0 ) {
+    stream->index = ftell( (FILE*)stream );
+  }
+*/
   if( stream->index + to_write >= stream->memsize ) {
 
     size_t used_bytes = pfs_used_bytes();
@@ -592,9 +596,15 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
   } else {
     ESP_LOGV(TAG, "Writing %d bytes at index %d of %d (no realloc, memsize = %d)", to_write, stream->index, stream->size, stream->memsize );
   }
+
   memcpy( &stream->bytes[stream->index], buf, to_write );
   stream->index += to_write;
   stream->size  += to_write;
+
+  if (stream->index > stream->size) {
+    ESP_LOGW(TAG, "Flattening stream->size to %d (memsize=%d, should realloc?)", stream->index, stream->memsize );
+    stream->size  = stream->index;
+  }
 
   return to_write;
 }
@@ -682,12 +692,15 @@ int pfs_unlink( const char * path )
 {
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
-    free( pfs_files[file_id]->name );
-    pfs_files[file_id]->name = NULL;
-    if( pfs_files[file_id]->bytes != NULL ) {
-      free( pfs_files[file_id]->bytes );
-      pfs_files[file_id]->bytes = NULL;
+    if( pfs_files[file_id]->name != NULL && pfs_files[file_id]->name[0] != '\0' ) {
+      free( pfs_files[file_id]->name );
     }
+    pfs_files[file_id]->name = NULL;
+
+    if( pfs_files[file_id]->size > 0 && pfs_files[file_id]->bytes != NULL ) {
+      free( pfs_files[file_id]->bytes );
+    }
+    pfs_files[file_id]->bytes = NULL;
     pfs_files[file_id]->size = 0;
     pfs_files[file_id]->memsize = 0;
     pfs_files[file_id]->index = 0;

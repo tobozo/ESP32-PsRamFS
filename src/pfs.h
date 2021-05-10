@@ -55,7 +55,7 @@ typedef struct
   uint32_t size;    // number of bytes in data
   uint32_t memsize; // size of allocated memory (hopefully more than size)
   uint32_t index;   // read cursor position
-  uint32_t flags;   // file flags (not used yet)
+  //uint32_t flags;   // file flags (not used yet)
 } pfs_file_t;
 
 
