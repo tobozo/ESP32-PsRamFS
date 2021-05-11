@@ -7,18 +7,21 @@
 Coding Horror
 -------------
 
-This is a very early version of ESP32-PsRamFS: a wannabee RamDisk library for Arduino-ESP32
-with vfs compliance.
+ESP32-PsRamFS id a pseudo RamDisk library for Arduino-ESP32, with vfs compliance.
 
-It provides a `fs::FS` style filesystem using the psram of a ESP32-Wrover or any ESP32
-equipped with PSRam.
+It provides a `fs::FS` style filesystem using the psram of an ESP32-Wrover or any ESP32 equipped with PSRam.
 
-Some unit tests are available in the example folder, consider setting the debug output level to DEBUG to see what's happening.
+Some unit tests are available in the example folder, consider setting the debug output level
+to DEBUG to see what's happening.
 
 Directory support is still partial but the API is now vfs compliant.
 
 Usage
 -----
+
+Only use this if your situation *requires* a filesystem, otherwise consider dropping the
+filesystem and use Streams instead with the excellent [arduino-BufferStream](https://github.com/IndustrialShields/arduino-BufferStream) library.
+
 
 ```C
 
@@ -49,7 +52,7 @@ Hardware Requirements:
 Actually PSRam is optional, but strongly recommended.
 
 For very low memory situations that still require some abstraction to access file data,
-consider dropping the filesystem and use Streams instead with the excellent [arduino-BufferStream](https://github.com/IndustrialShields/arduino-BufferStream) library.
+
 
 
 Tested on:

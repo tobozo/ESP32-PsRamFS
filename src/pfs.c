@@ -548,11 +548,11 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
   }
   memcpy( buf, &stream->bytes[stream->index], to_read );
   if( to_read > 1 ) {
-    ESP_LOGV(TAG, "Reading %d byte(s) at index %d of %d", to_read, stream->index, stream->size );
+    ESP_LOGV(TAG, "(%d, %d) Reading %d byte(s) at index %d of %d", size, count, to_read, stream->index, stream->size );
   } else {
     char out[2] = {0,0};
     out[0] = buf[0];
-    ESP_LOGV(TAG, "Reading %d byte(s) at index %d of %d (%s)", to_read, stream->index, stream->size, out );
+    ESP_LOGV(TAG, "(%d, %d) Reading %d byte(s) at index %d of %d (%s)", size, count, to_read, stream->index, stream->size, out );
   }
   stream->index += to_read;
   return to_read;
@@ -563,11 +563,7 @@ size_t pfs_fread( uint8_t *buf, size_t size, size_t count, pfs_file_t * stream )
 size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * stream)
 {
   size_t to_write = size*count;
-/*
-  if( stream->size > 0 ) {
-    stream->index = ftell( (FILE*)stream );
-  }
-*/
+
   if( stream->index + to_write >= stream->memsize ) {
 
     size_t used_bytes = pfs_used_bytes();
@@ -602,7 +598,6 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
   stream->index += to_write;
 
   if (stream->index > stream->size) {
-    ESP_LOGW(TAG, "Flattening stream->size to %d (memsize=%d, should realloc?)", stream->index, stream->memsize );
     stream->size  = stream->index;
   }
 

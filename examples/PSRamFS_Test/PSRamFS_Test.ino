@@ -267,7 +267,7 @@ void seekLog( fs::File &file, const char* strref, size_t offset, int mode = 0 )
   size_t index = offset;
   size_t len = strlen(strref);
   if( ! file.seek( index, (fs::SeekMode)mode ) ) {
-    ESP_LOGD(TAG, "Seek call failed at offset %d using mode %d", index, mode );
+    ESP_LOGD(TAG, "Seek call failed at (maybe unrealistic) offset %d using mode %d", index, mode );
     //return;
   }
   char a = file.read();
@@ -331,7 +331,7 @@ void testSeek(fs::FS &fs)
   seekLog( file, message, 0,  2 );  // seek end
   seekLog( file, message, 12, 2 ); // seek end with -12 offset
   // this test is expected to fail, but still set the cursor
-  seekLog( file, message, 12345678, 2 ); // seek end (actually seek start with enormous offset)
+  seekLog( file, message, len*1024, 2 ); // seek end (actually seek start with enormous offset)
 
   int pos = 0;
   file.seek(0);
@@ -356,13 +356,13 @@ void testSeek(fs::FS &fs)
   }
 
 
-  for(int i=0;i<30;i++) {
+  for(int i=0;i<len;i++) {
     size_t random_index = rand()%len;
     char random_char = (rand()%(128-32))+31;
     //ESP_LOGE(TAG, "random char : %s", String(random_char).c_str() );
     file.seek( random_index );
-    file.write( message[random_index] );
-    //message[random_index] = random_char;
+    file.write( random_char/*message[random_index]*/ );
+    message[random_index] = random_char;
     seekLog( file, message, random_index, 2 );
   }
 
