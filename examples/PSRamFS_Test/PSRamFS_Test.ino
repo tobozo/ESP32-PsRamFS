@@ -9,50 +9,89 @@
 
 
 
-void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
+void listDir(fs::FS &fs, const char * dirname, int levels = -1 )
 {
-  delay(100);
-  ESP_LOGW(TAG, "Listing directory: %s", dirname);
 
-  // still hacky, directory support is incomplete in the driver
-  struct PSRAMFILE
-  {
-    int file_id;
-    char * name;
-    char * bytes;
-    uint32_t size;
-    uint32_t memsize;
-    uint32_t index;
-    uint32_t flags;
-  };
+  if( levels < 0 ) {
+    delay(100);
+    ESP_LOGW(TAG, "Listing directory: %s", dirname);
 
-  PSRAMFILE ** myFiles = (PSRAMFILE **)PSRamFS.getFiles();
+    // still hacky, directory support is incomplete in the driver
+    struct PSRAMFILE
+    {
+      int file_id;
+      char * name;
+      char * bytes;
+      uint32_t size;
+      uint32_t memsize;
+      uint32_t index;
+      int dir_id;
+    };
 
-  if( myFiles != NULL ) {
+    struct PSRAMDIR
+    {
+      uint16_t dd_vfs_idx; /*!< VFS index, not to be used by applications */
+      uint16_t dd_rsv;     /*!< field reserved for future extension */
+      int    dir_id; // dir descriptor
+      char*  name;   // dir path
+      int    pos;    // position while reading dir (reset by opendir)
+      int    itemscount;
+      void*  parentdir;
+      void** dir_items;
+    };
+
+    PSRAMFILE ** myFiles = (PSRAMFILE **)PSRamFS.getFiles();
     size_t myFilesCount = PSRamFS.getFilesCount();
-    if( myFilesCount > 0 ) {
-      for( int i=0; i<myFilesCount; i++ ) {
-        if( myFiles[i]->name != NULL ) {
-          ESP_LOGW(TAG, "Entity #%d : %s / %d / %d", i, myFiles[i]->name, myFiles[i]->size, myFiles[i]->index );
+
+    if( myFiles != NULL ) {
+      if( myFilesCount > 0 ) {
+        for( int i=0; i<myFilesCount; i++ ) {
+          if( myFiles[i]->name != NULL ) {
+            ESP_LOGW(TAG, "File #%d : %s / %d / %d", i, myFiles[i]->name, myFiles[i]->size, myFiles[i]->index );
+          }
         }
+      } else {
+        ESP_LOGW(TAG, "Directory empty");
       }
-    } else {
-      ESP_LOGW(TAG, "Directory empty");
     }
+
+    PSRAMDIR ** myDirs = (PSRAMDIR**)PSRamFS.getFolders();
+
+    if( myDirs != NULL ) {
+      if( myFilesCount > 0 ) {
+        for( int i=0; i<myFilesCount; i++ ) {
+          if( myDirs[i]->name != NULL ) {
+            ESP_LOGW(TAG, "Dir #%d : '%s' has %d items", i, myDirs[i]->name, myDirs[i]->itemscount );
+          }
+        }
+      } else {
+        ESP_LOGW(TAG, "Directory empty");
+      }
+    }
+    return;
   }
-  /*
+
   // keeping this for later, when directory support is acceptable
   File root = fs.open(dirname);
   if(!root){
-    ESP_LOGD(TAG, "- failed to open directory");
+    ESP_LOGE(TAG, "- failed to open directory");
     return;
+  } else {
+    ESP_LOGV(TAG, "**** entering '%s' directory", dirname);
   }
   if(!root.isDirectory()){
-    ESP_LOGD(TAG, " - not a directory");
+    ESP_LOGE(TAG, " - not a directory");
     return;
+  } else {
+    //ESP_LOGD(TAG, "- '%s' directory seems valid", root.name() );
   }
 
   File file = root.openNextFile();
+
+  if( !file ) {
+    ESP_LOGV(TAG, " - directory empty");
+  }
+
   while(file){
     if(file.isDirectory()){
       ESP_LOGD(TAG, "  DIR : %s",  file.name());
@@ -64,8 +103,8 @@ void listDir(fs::FS &fs, const char * dirname, uint8_t levels)
     }
     file = root.openNextFile();
   }
-  */
-  ESP_LOGW(TAG, "[PSRamFS Bytes] Used: %d, Free: %d, Total: %d, heap: %d\n", PSRamFS.usedBytes(), PSRamFS.freeBytes(), PSRamFS.totalBytes(), ESP.getFreePsram() ); ;
+
+  ESP_LOGV(TAG, "**** leaving directory");
 }
 
 
@@ -382,8 +421,8 @@ void setup()
 
     Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram() );
 
-    RUN_TEST(test_can_format_mounted_partition);
     RUN_TEST(test_setup_teardown);
+    RUN_TEST(test_can_format_mounted_partition);
 
     Serial.printf("Free PSRAM: %d\n", ESP.getFreePsram() );
 
@@ -399,7 +438,7 @@ void setup()
   ESP_LOGD(TAG, "Total space: %10u", PSRamFS.totalBytes());
   ESP_LOGD(TAG, "Free space: %10u", PSRamFS.freeBytes());
 
-  listDir(PSRamFS, "/", 0);
+  listDir(PSRamFS, "/");
 
   testSeek(PSRamFS);
 
@@ -410,30 +449,65 @@ void setup()
 
   writeFile(PSRamFS, "/oops.ico", "???????????????");
 
-  listDir(PSRamFS, "/", 0);
+  listDir(PSRamFS, "/");
 
   writeFile(PSRamFS, "/hello.txt", "Hello ");
   appendFile(PSRamFS, "/hello.txt", "World!");
   readFile(PSRamFS, "/hello.txt");
 
-  listDir(PSRamFS, "/", 0);
+  listDir(PSRamFS, "/");
 
   renameFile(PSRamFS, "/hello.txt", "/foo.txt");
   readFile(PSRamFS, "/foo.txt");
   deleteFile(PSRamFS, "/foo.txt");
 
-  listDir(PSRamFS, "/", 0);
+  listDir(PSRamFS, "/");
 
   testFileIO(PSRamFS, "/test.txt");
+
+  if( PSRamFS.mkdir("/") ) { // should fail
+    ESP_LOGE(TAG, "Root dir should already exist !");
+  }
+  if( ! PSRamFS.mkdir("/blah") ) { // should succeed
+    ESP_LOGE(TAG, "Failed to create directory");
+  }
+  PSRamFS.mkdir("/blah/whoops"); // should succeed
+  PSRamFS.mkdir("/blah/whoops/zilch"); // should succeed
+  PSRamFS.mkdir("/blah/bummer"); // should succeed
+  PSRamFS.mkdir("/blah/whoops/splat"); // should succeed
+  PSRamFS.mkdir("/some/very/deep/folder/structure"); // should it fail or create subdirs ?
+  writeFile(PSRamFS, "/this/folder/does/not/exist/yet/goodbye.txt", "you say hello, I say goodbye"); // should succeed and create all subfolders
+  writeFile(PSRamFS, "/this/folder/does/partially/exist/goodbye.txt", "you say hello, I say goodbye"); // should succeed and create all subfolders
+  appendFile(PSRamFS, "/this/folder/does/partially/exist/goodbye.txt", " hasta la vista");
+
+  PSRamFS.rmdir("/blah/whoops/splat"); // should succeed
+
+  PSRamFS.rmdir("/this/folder/does"); // should fail (directory not empty, contains 1 subdir)
+  PSRamFS.rmdir("/this/folder/does/not/exist/yet"); // should fail (directory not empty, contains 1 file)
+  deleteFile(PSRamFS, "/this/folder/does/not/exist/yet/goodbye.txt");
+  PSRamFS.rmdir("/this/folder/does/not/exist/yet"); // should now succeed
+
+  PSRamFS.rmdir("/this/folder/was/never/created"); // should fail
+
+  PSRamFS.rename("/this/folder/does/not", "/this/folder/does/really" );
+
   ESP_LOGD(TAG, "Free space: %10u\n", PSRamFS.freeBytes());
 
-  listDir(PSRamFS, "/", 0);
+  listDir(PSRamFS, "/");
+
 
   deleteFile(PSRamFS, "/test.txt");
 
-  listDir(PSRamFS, "/", 0);
+
+  //listDir(PSRamFS, "/");
+
+
+  listDir(PSRamFS, "/", 10);
 
   ESP_LOGD(TAG,  "Test complete" );
+
+  PSRamFS.end();
+
 
 }
 

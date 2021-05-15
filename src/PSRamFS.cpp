@@ -88,7 +88,7 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
 
 void F_PSRam::end()
 {
-  pfs_free();
+  pfs_deinit();
   _impl->mountpoint(NULL);
   return;
 }
@@ -112,6 +112,12 @@ size_t F_PSRam::totalBytes()
 void ** F_PSRam::getFiles()
 {
   return (void**)pfs_get_files();
+}
+
+
+void ** F_PSRam::getFolders()
+{
+  return (void**)pfs_get_dirs();
 }
 
 

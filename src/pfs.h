@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/fcntl.h>
 #include "esp_heap_caps.h"
@@ -47,7 +48,7 @@ typedef struct
 
 
 // File structure for pfs
-typedef struct
+typedef struct _pfs_file_t
 {
   int      file_id; // file descriptor
   char*    name;    // file path
@@ -55,15 +56,22 @@ typedef struct
   uint32_t size;    // number of bytes in data
   uint32_t memsize; // size of allocated memory (hopefully more than size)
   uint32_t index;   // read cursor position
+  int      dir_id;  // parent directory
+  //int      next_file_id; // id of the next file in directory if any
   //uint32_t flags;   // file flags (not used yet)
 } pfs_file_t;
 
-
 // Directory structure for pfs
-typedef struct
+typedef struct _pfs_dir_t
 {
+  uint16_t dd_vfs_idx; /*!< VFS index, not to be used by applications */
+  uint16_t dd_rsv;     /*!< field reserved for future extension */
   int    dir_id; // dir descriptor
   char * name;   // dir path
+  int    pos;    // position while reading dir (reset by opendir)
+  int    itemscount;
+  struct _pfs_dir_t* parent_dir; // parent directory if any
+  struct dirent ** items; // collection of items (file or dir) in that directory
 } pfs_dir_t;
 
 // Seek modes
@@ -111,6 +119,7 @@ void         pfs_set_psram( bool use );
 size_t       pfs_used_bytes();
 void         pfs_clean_files();
 void         pfs_free();
+void         pfs_deinit();
 
 esp_err_t    esp_vfs_pfs_register(const esp_vfs_pfs_conf_t *conf);
 esp_err_t    esp_vfs_pfs_format(const char* partition_label);
