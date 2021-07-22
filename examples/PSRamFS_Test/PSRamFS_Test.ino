@@ -1,6 +1,15 @@
 // PSRamFS Example sketch
 #include "PSRamFS.h" // https://github.com/tobozo/ESP32-PsRamFS
 
+// see https://github.com/espressif/arduino-esp32/commit/f6c9faf4daeff4ac6bcfafd55dbb1fb922b304ed
+const char* fs_file_path( fs::File *file ) {
+  #if defined ESP_IDF_VERSION_MAJOR && ESP_IDF_VERSION_MAJOR >= 4
+    return file->path();
+  #else
+    return file->name();
+  #endif
+}
+
 #define UNIT_TESTS
 
 #ifdef UNIT_TESTS
@@ -83,7 +92,7 @@ void listDir(fs::FS &fs, const char * dirname, int levels = -1 )
     ESP_LOGE(TAG, " - not a directory");
     return;
   } else {
-    //ESP_LOGD(TAG, "- '%s' directory seems valid", root.name() );
+    //ESP_LOGD(TAG, "- '%s' directory seems valid", fs_file_path(&root) );
   }
 
   File file = root.openNextFile();
@@ -94,12 +103,12 @@ void listDir(fs::FS &fs, const char * dirname, int levels = -1 )
 
   while(file){
     if(file.isDirectory()){
-      ESP_LOGD(TAG, "  DIR : %s",  file.name());
+      ESP_LOGD(TAG, "  DIR : %s",  fs_file_path(&file));
       if(levels){
-        listDir(fs, file.name(), levels -1);
+        listDir(fs, fs_file_path(&file), levels -1);
       }
     } else {
-      ESP_LOGD(TAG, "  FILE: %s\t%d", file.name(), file.size());
+      ESP_LOGD(TAG, "  FILE: %s\t%d", fs_file_path(&file), file.size());
     }
     file = root.openNextFile();
   }

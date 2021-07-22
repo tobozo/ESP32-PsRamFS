@@ -207,7 +207,9 @@ static char *pfs_dirname(char *path)
   return path;
 }
 
-#define strdupa(a) strcpy((char*)alloca(strlen(a) + 1), a)
+#ifndef strdupa
+  #define strdupa(a) strcpy((char*)alloca(strlen(a) + 1), a)
+#endif
 // create traversing directories from a path
 static int pfs_mkpath(char *name)
 {
@@ -852,13 +854,13 @@ int pfs_unlink( const char * path )
   int file_id = pfs_find_file( path );
   if( file_id > -1 ) {
     if( pfs_files[file_id]->name != NULL && pfs_files[file_id]->name[0] != '\0' ) {
-      ESP_LOGD(TAG, "Freeing name for path %s", path );
+      ESP_LOGV(TAG, "Freeing name for path %s", path );
       free( pfs_files[file_id]->name );
     }
     pfs_files[file_id]->name = NULL;
 
     if( pfs_files[file_id]->size > 0 && pfs_files[file_id]->bytes != NULL ) {
-      ESP_LOGD(TAG, "Freeing bytes for path %s", path );
+      ESP_LOGV(TAG, "Freeing bytes for path %s", path );
       free( pfs_files[file_id]->bytes );
     }
     pfs_files[file_id]->bytes = NULL;
@@ -980,7 +982,7 @@ int pfs_rename( const char * from, const char * to )
 
     for(int i=0; i<dir->parent_dir->itemscount; i++) {
       if( dir->parent_dir->items[i]->d_ino == dir_id ) {
-        ESP_LOGD(TAG, "Renaming dir #%d / from '%s' to '%s'", dir_id, dir->parent_dir->items[i]->d_name, pfs_basename((char*)to );
+        //ESP_LOGD(TAG, "Renaming dir #%d / from '%s' to '%s'", dir_id, dir->parent_dir->items[i]->d_name, pfs_basename((char*)to );
         snprintf( dir->parent_dir->items[i]->d_name, 256, "%s", pfs_basename((char*)to) );
       }
     }
@@ -1318,7 +1320,7 @@ DIR* vfs_pfs_opendir(const char* name)
 {
   pfs_dir_t* tmp = pfs_opendir( name );
   if( tmp == NULL ) {
-    ESP_LOGE(TAG, "Can't open dir %s", name );
+    ESP_LOGD(TAG, "Can't open dir %s", name );
     return NULL;
   } else {
     tmp->pos = 0;
