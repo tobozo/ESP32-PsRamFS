@@ -109,7 +109,7 @@ int         pfs_next_file_avail();
 int         pfs_next_dir_avail();
 int         pfs_find_file( const char* path );
 int         pfs_find_dir( const char* path );
-char*       pfs_flags_conv_str(int m);
+const char* pfs_flags_conv_str(int m);
 int         pfs_flags_conv(int m);
 int         pfs_stat( const char * path, struct stat * stat_ );
 pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
@@ -571,14 +571,14 @@ int pfs_stat( const char * path, struct stat * stat_ )
 
 
 
-char *pfs_flags_conv_str(int m)
+const char *pfs_flags_conv_str(int m)
 {
-  if( (m & O_WRONLY) && (m & O_TRUNC) ) return "w";
-  if( (m & O_RDWR ) && (m & O_TRUNC) ) return "w+";
-  if( m & O_RDWR ) return "r+";
-  if( m & O_WRONLY ) return "a";
-  if( m & O_RDWR ) return "a+";
-  if( m & O_RDONLY ) return "r";
+  if( (m & O_WRONLY) && (m & O_TRUNC) ) { ESP_LOGV(TAG, "mode conv to w");  return "w";  }
+  if( (m & O_RDWR ) && (m & O_TRUNC) )  { ESP_LOGV(TAG, "mode conv to w+"); return "w+"; }
+  if( m & O_RDWR )                      { ESP_LOGV(TAG, "mode conv to r+"); return "r+"; }
+  if( m & O_WRONLY )                    { ESP_LOGV(TAG, "mode conv to a");  return "a";  }
+  if( m & O_RDWR )                      { ESP_LOGV(TAG, "mode conv to a+"); return "a+"; }
+  if( m & O_RDONLY )                    { ESP_LOGV(TAG, "mode conv to r");  return "r";  }
   return "r";
 }
 
@@ -607,7 +607,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
     ESP_LOGV(TAG, "Valid path :%s, flags = 0x%04x, mode = 0x%04x", path, flags, fmode );
   }
 
-  char *mode = pfs_flags_conv_str(flags);
+  const char *mode = pfs_flags_conv_str(flags);
   int newflags = pfs_flags_conv(flags);
 
   int file_id = pfs_find_file( path );
@@ -621,9 +621,9 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
     if( mode ) {
       switch( mode[0] ) {
         case 'a': // seek end
-          ESP_LOGV(TAG, "Append to index :%d", pfs_files[file_id]->size );
-          fseek( (FILE*)pfs_files[file_id], 0, pfs_seek_end );
-          pfs_files[file_id]->index = ftell( (FILE*)pfs_files[file_id] );
+          ESP_LOGV(TAG, "Append to index :%d (mode=%s)", pfs_files[file_id]->size, mode );
+          pfs_fseek( /*(FILE*)*/pfs_files[file_id], 0, pfs_seek_end );
+          pfs_files[file_id]->index = pfs_ftell( /*(FILE*)*/pfs_files[file_id] );
         break;
         case 'w': // truncate
           ESP_LOGV(TAG, "Truncate (mode=%s)", mode);
