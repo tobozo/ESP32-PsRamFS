@@ -35,7 +35,6 @@ extern "C" {
 #include <dirent.h>
 #include <sys/fcntl.h>
 #include "esp_heap_caps.h"
-#include "esp32-hal-log.h"
 
 // Configuration structure for esp_vfs_pfs_register.
 typedef struct
