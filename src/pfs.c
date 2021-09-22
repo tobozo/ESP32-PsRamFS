@@ -26,6 +26,16 @@
 
 #include "sdkconfig.h"
 
+#if defined CONFIG_LOG_COLORS
+  #undef CONFIG_LOG_COLORS // this is on by default and breaks logging
+#endif
+#include "esp_log.h"
+
+
+#if !defined CONFIG_SPIRAM_SUPPORT
+  #warning "No SPIRAM detected, will use heap"
+#endif
+
 // for SPIRAM detection support
 #ifdef CONFIG_IDF_CMAKE // IDF 4+
   #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
@@ -109,7 +119,7 @@ int         pfs_next_file_avail();
 int         pfs_next_dir_avail();
 int         pfs_find_file( const char* path );
 int         pfs_find_dir( const char* path );
-char*       pfs_flags_conv_str(int m);
+const char* pfs_flags_conv_str(int m);
 int         pfs_flags_conv(int m);
 int         pfs_stat( const char * path, struct stat * stat_ );
 pfs_file_t* pfs_fopen( const char * path, int flags, int mode );
@@ -318,7 +328,7 @@ void pfs_set_block_size(size_t block_size)
 
 void pfs_set_alloc_functions()
 {
-  #ifdef BOARD_HAS_PSRAM
+  #if defined BOARD_HAS_PSRAM
     if (esp_spiram_init() != ESP_OK) {
       ESP_LOGE(TAG, "Can't init psram :-(");
       pfs_psram_enabled = false;
@@ -341,14 +351,19 @@ void pfs_set_alloc_functions()
       pfs_set_block_size( 512 );
     }
   #else // ! BOARD_HAS_PSRAM
-    ESP_LOGD(TAG, "pfs will use heap");
+    ESP_LOGD(TAG, "pfs will use malloc");
     pfs_psram_enabled = false;
     pfs_malloc    = i_malloc;
     pfs_realloc   = i_realloc;
     pfs_calloc    = i_calloc;
     pfs_free_mem  = i_free;
-    pfs_set_max_items( 16 );
-    pfs_set_block_size( 512 );
+    #if defined CONFIG_SPIRAM_SUPPORT
+      pfs_set_max_items( 256 );
+      pfs_set_block_size( 4096 );
+    #else
+      pfs_set_max_items( 16 );
+      pfs_set_block_size( 512 );
+    #endif
   #endif
 }
 
@@ -497,7 +512,6 @@ int pfs_find_file( const char* path )
 int pfs_find_dir( const char* path )
 {
   if( pfs_dirs != NULL ) {
-    unsigned long entitycount = 0;
     for( int i=0; i<pfs_max_items; i++ ) {
       if( pfs_dirs[i]->name == NULL ) continue;
       if( strcmp( path, pfs_dirs[i]->name ) == 0 ) {
@@ -571,14 +585,14 @@ int pfs_stat( const char * path, struct stat * stat_ )
 
 
 
-char *pfs_flags_conv_str(int m)
+const char *pfs_flags_conv_str(int m)
 {
-  if( (m & O_WRONLY) && (m & O_TRUNC) ) return "w";
-  if( (m & O_RDWR ) && (m & O_TRUNC) ) return "w+";
-  if( m & O_RDWR ) return "r+";
-  if( m & O_WRONLY ) return "a";
-  if( m & O_RDWR ) return "a+";
-  if( m & O_RDONLY ) return "r";
+  if( (m & O_WRONLY) && (m & O_TRUNC) ) { ESP_LOGV(TAG, "mode conv to w");  return "w";  }
+  if( (m & O_RDWR ) && (m & O_TRUNC) )  { ESP_LOGV(TAG, "mode conv to w+"); return "w+"; }
+  if( m & O_RDWR )                      { ESP_LOGV(TAG, "mode conv to r+"); return "r+"; }
+  if( m & O_WRONLY )                    { ESP_LOGV(TAG, "mode conv to a");  return "a";  }
+  if( m & O_RDWR )                      { ESP_LOGV(TAG, "mode conv to a+"); return "a+"; }
+  if( m & O_RDONLY )                    { ESP_LOGV(TAG, "mode conv to r");  return "r";  }
   return "r";
 }
 
@@ -607,7 +621,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
     ESP_LOGV(TAG, "Valid path :%s, flags = 0x%04x, mode = 0x%04x", path, flags, fmode );
   }
 
-  char *mode = pfs_flags_conv_str(flags);
+  const char *mode = pfs_flags_conv_str(flags);
   int newflags = pfs_flags_conv(flags);
 
   int file_id = pfs_find_file( path );
@@ -621,9 +635,9 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
     if( mode ) {
       switch( mode[0] ) {
         case 'a': // seek end
-          ESP_LOGV(TAG, "Append to index :%d", pfs_files[file_id]->size );
-          fseek( (FILE*)pfs_files[file_id], 0, pfs_seek_end );
-          pfs_files[file_id]->index = ftell( (FILE*)pfs_files[file_id] );
+          ESP_LOGV(TAG, "Append to index :%d (mode=%s)", pfs_files[file_id]->size, mode );
+          pfs_fseek( /*(FILE*)*/pfs_files[file_id], 0, pfs_seek_end );
+          pfs_files[file_id]->index = pfs_ftell( /*(FILE*)*/pfs_files[file_id] );
         break;
         case 'w': // truncate
           ESP_LOGV(TAG, "Truncate (mode=%s)", mode);
@@ -649,7 +663,6 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
 
   if(mode && (mode[0] != 'r' || mode[1] == '+') ) {
     // new file, write mode
-    int slotscount = 0;
     int fileslot = pfs_next_file_avail();
 
     if( fileslot < 0 || pfs_files[fileslot] == NULL ) {
@@ -680,13 +693,13 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
       item->d_type = DT_REG;
 
       if( pfs_dir_add_item( dir_id, item ) < 0 ) {
-        ESP_LOGE(TAG, "Can't assign %d to a dir", path);
+        ESP_LOGE(TAG, "Can't assign %s to a dir", path);
       } else {
         pfs_files[fileslot]->dir_id = dir_id;
       }
 
     } else {
-      ESP_LOGE(TAG, "Can't assign %d to a dir", path);
+      ESP_LOGE(TAG, "Can't assign %s to a dir", path);
     }
 
     return pfs_files[fileslot];
@@ -750,7 +763,7 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
         return -1;
       }
       ESP_LOGV(TAG, "[bytes free:%d] Reallocating %d bytes to write %d bytes at index %d/%d => %d", pfs_free_mem(), pfs_alloc_block_size, to_write, stream->index, stream->size, stream->index + pfs_alloc_block_size  );
-      ESP_LOGV(TAG, "stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->bytes, stream->index + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
+      ESP_LOGV(TAG, "stream->bytes = (char*)realloc( %d, %d ); (when %d/%d bytes free)", stream->memsize, stream->memsize + pfs_alloc_block_size, pfs_free_mem(), pfs_partition_size  );
       stream->bytes = (char*)pfs_realloc( stream->bytes, stream->memsize + pfs_alloc_block_size  );
       stream->memsize += pfs_alloc_block_size;
       used_bytes += pfs_alloc_block_size;
@@ -774,7 +787,7 @@ size_t pfs_fwrite( const uint8_t *buf, size_t size, size_t count, pfs_file_t * s
 
 int pfs_fflush(pfs_file_t * stream)
 {
-  ESP_LOGW("[FIXME] Flushing (actually does nothing)");
+  ESP_LOGW(TAG, "[FIXME] Flushing (actually does nothing)");
   return 0;
 }
 
@@ -788,20 +801,20 @@ int pfs_fseek( pfs_file_t * stream, off_t offset, pfs_seek_mode mode )
     case pfs_seek_set: // 0
       if( offset < stream->size ) {
         stream->index = offset;
-        ESP_LOGV(TAG, "Seeking mode #%d (seekset) with offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+        ESP_LOGV(TAG, "Seeking mode #%d (seekset) with offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
       } else {
         stream->index = stream->size;
-        ESP_LOGE(TAG, "Seeking mode #%d (seekset) with capped offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+        ESP_LOGE(TAG, "Seeking mode #%d (seekset) with capped offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
         return -1;
       }
     break;
     case pfs_seek_cur: // 1
       if( stream->index + offset <= stream->size ) {
         stream->index += offset;
-        ESP_LOGV(TAG, "Seeking mode #%d (seekcur) with offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+        ESP_LOGV(TAG, "Seeking mode #%d (seekcur) with offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
       } else {
         stream->index = stream->size;
-        ESP_LOGE(TAG, "Seeking mode #%d (seekcur) with truncated offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+        ESP_LOGE(TAG, "Seeking mode #%d (seekcur) with truncated offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
         return -1;
       }
     break;
@@ -813,11 +826,11 @@ int pfs_fseek( pfs_file_t * stream, off_t offset, pfs_seek_mode mode )
           stream->index = stream->size - offset;
         } else {
           stream->index = 0;
-          ESP_LOGE(TAG, "Seeking mode #%d (seekend) with truncated offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+          ESP_LOGE(TAG, "Seeking mode #%d (seekend) with truncated offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
           return -1;
         }
       }
-      ESP_LOGV(TAG, "Seeking mode #%d (seekend) with offset(%d)/size(%d)/index(%d)", mode, offset, stream->size, stream->index );
+      ESP_LOGV(TAG, "Seeking mode #%d (seekend) with offset(%d)/size(%d)/index(%d)", mode, (int)offset, stream->size, stream->index );
     break;
   }
   return 0;
@@ -1099,7 +1112,6 @@ int pfs_mkdir( const char* path )
     return dir_id;
   }
 
-  int slotscount = 0;
   int dirslot = pfs_next_dir_avail();
   size_t pathlen = strlen( path );
   pfs_dirs[dirslot]->name = (char*)pfs_calloc(1, pathlen +1 );
