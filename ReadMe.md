@@ -1,7 +1,12 @@
 # ESP32-PsRamFS
 
+[![arduino-library-badge](https://www.ardu-badge.com/badge/ESP32-PSRamFS.svg?)](https://www.ardu-badge.com/ESP32-PSRamFS)
+[![PlatformIO Registry](https://badges.registry.platformio.org/packages/tobozo/library/ESP32-PSRamFS.svg)](https://registry.platformio.org/packages/libraries/tobozo/ESP32-PSRamFS)
+
 
 ![](extras/logo.jpeg)
+
+
 
 
 Coding Horror
