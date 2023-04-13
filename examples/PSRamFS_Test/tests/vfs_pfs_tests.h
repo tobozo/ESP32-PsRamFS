@@ -35,6 +35,8 @@ int     vfs_pfs_closedir(DIR* pdir);
 #define pfs_partition_label "psram"
 #define pfs_base_path "/psram"
 
+static const char TAG[] = "test";
+
 static const char pfs_test_partition_label[] = pfs_partition_label;
 static const char pfs_test_hello_str[]       = "Hello, World!\n";
 static const char pfs_test_filename[]        = pfs_base_path "/hello.txt";
