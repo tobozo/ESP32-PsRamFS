@@ -32,22 +32,30 @@
 #include "esp_log.h"
 
 
-#if !defined CONFIG_SPIRAM_SUPPORT
+#if defined BOARD_HAS_PSRAM || defined CONFIG_SPIRAM_SUPPORT
+  #warning "Will use PSRAM or heap"
+#elif !defined CONFIG_SPIRAM_SUPPORT
   #warning "No SPIRAM detected, will use heap"
 #endif
 
-// for SPIRAM detection support
+// for PSRAM/SPIRAM detection support
 #ifdef CONFIG_IDF_CMAKE // IDF 4+
-  #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
-    #include "esp32/spiram.h"
-  #elif CONFIG_IDF_TARGET_ESP32S2
-    #include "esp32s2/spiram.h"
-    #include "esp32s2/rom/cache.h"
-  #elif CONFIG_IDF_TARGET_ESP32S3
-    #include "esp32s3/spiram.h"
-    #include "esp32s3/rom/cache.h"
+  #if __has_include("esp_psram.h") // IDF 5+, all devices
+    #include "esp_psram.h"
+    static int esp_spiram_init(void) { esp_psram_init(); return esp_psram_is_initialized()?ESP_OK:-1; }
   #else
-    #error Target CONFIG_IDF_TARGET is not supported
+    #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
+      #include "esp32/spiram.h"
+    #elif CONFIG_IDF_TARGET_ESP32S2
+      #include "esp32s2/spiram.h"
+      #include "esp32s2/rom/cache.h"
+    #elif CONFIG_IDF_TARGET_ESP32S3
+      #include "esp32s3/spiram.h"
+      #include "esp32s3/rom/cache.h"
+    #else
+      #error Target CONFIG_IDF_TARGET is not supported
+    #endif
+
   #endif
 #else // ESP32 Before IDF 4.0
   #include "esp_spiram.h"

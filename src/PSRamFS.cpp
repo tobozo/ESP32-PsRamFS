@@ -41,7 +41,6 @@ F_PSRam::F_PSRam(FSImplPtr impl)
 
 bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFiles, const char * partitionLabel)
 {
-
   if( pfs_get_files() != NULL ) {
     log_w("Filesystem already mounted");
     return true;
@@ -52,8 +51,8 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
     pfs_set_psram( false );
     pfs_set_partition_size( 100*1024 /*0.25 * ESP.getFreeHeap()*/ );
   } else {
-    //pfs_set_psram( true );
-    pfs_set_partition_size( FPSRAM_PARTITION_SIZE * ESP.getFreePsram() );
+    if( partitionSize == 0 ) partitionSize = FPSRAM_PARTITION_SIZE * ESP.getFreePsram();
+    pfs_set_partition_size( partitionSize );
   }
 
   esp_vfs_pfs_conf_t conf = {
@@ -85,7 +84,6 @@ bool F_PSRam::begin(bool formatOnFail, const char * basePath, uint8_t maxOpenFil
 }
 
 
-
 void F_PSRam::end()
 {
   pfs_deinit();
@@ -94,13 +92,20 @@ void F_PSRam::end()
 }
 
 
+bool F_PSRam::setPartitionSize(size_t size_bytes)
+{
+  if (!psramInit() ) return false;
+  if( size_bytes==0 || size_bytes>ESP.getFreePsram() ) return false;
+  partitionSize = size_bytes;
+  return true;
+}
+
 
 bool F_PSRam::format(bool full_wipe, char* partitionLabel)
 {
   pfs_clean_files();
   return true;
 }
-
 
 
 size_t F_PSRam::totalBytes()
@@ -133,12 +138,10 @@ size_t F_PSRam::usedBytes()
 }
 
 
-
 size_t F_PSRam::freeBytes()
 {
   return totalBytes() - usedBytes();
 }
-
 
 
 bool F_PSRam::exists(const char* path)
@@ -146,7 +149,6 @@ bool F_PSRam::exists(const char* path)
   File f = open(path, "r");
   return (f == true) && !f.isDirectory();
 }
-
 
 
 bool F_PSRam::exists(const String& path)

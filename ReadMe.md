@@ -1,7 +1,12 @@
 # ESP32-PsRamFS
 
+[![arduino-library-badge](https://www.ardu-badge.com/badge/ESP32-PSRamFS.svg?)](https://www.ardu-badge.com/ESP32-PSRamFS)
+[![PlatformIO Registry](https://badges.registry.platformio.org/packages/tobozo/library/ESP32-PSRamFS.svg)](https://registry.platformio.org/packages/libraries/tobozo/ESP32-PSRamFS)
+
 
 ![](extras/logo.jpeg)
+
+
 
 
 Coding Horror
@@ -33,6 +38,8 @@ void setup()
 
   Serial.begin(115200);
 
+  PSRamFS.setPartitionSize( ESP.getFreePsram()/2 ); // use half of psram
+
   if(!PSRamFS.begin()){
     Serial.println("PSRamFS Mount Failed");
     return;
@@ -61,7 +68,9 @@ Tested on:
 - ESP32-Wroom
 - ESP32-Wrover
 - ESP32-S2
+- ESP32-S3
 - ESP32-C3
+
 
 
 Known issues:
@@ -74,7 +83,7 @@ Known issues:
 
 
 
-Credits:
+Credits/thanks:
 --------
 
 - [lbernstone](https://github.com/lbernstone) special thanks for assisting me in this experience
@@ -83,6 +92,6 @@ Credits:
 - [Bill Greiman](https://github.com/greiman/RamDisk)
 - [lorolol](https://github.com/lorol)
 - [sharandac](https://github.com/sharandac)
-
+- [Rob58329](https://github.com/Rob58329)
 
 

@@ -49,6 +49,7 @@ namespace fs
       void end();
       bool exists(const char* path);
       bool exists(const String& path);
+      bool setPartitionSize(size_t size_bytes);
       virtual void **getFiles();
       virtual void **getFolders();
       virtual size_t getFilesCount();
