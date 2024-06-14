@@ -438,6 +438,10 @@ void setup()
     UNITY_END(); // stop unit testing
   #endif
 
+  if( ! PSRamFS.setPartitionSize( ESP.getFreePsram()/2 ) ) { // try to allocate half of psram
+    Serial.println("Failed to allocate half of PSRam, will use heap instead");
+  }
+
   // - testing the fs::FS layer from PSRamFS.cpp
   if(!PSRamFS.begin()){
     ESP_LOGE(TAG, "PSRamFS Mount Failed");
