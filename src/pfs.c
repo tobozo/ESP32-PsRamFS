@@ -38,24 +38,19 @@
   #warning "No SPIRAM detected, will use heap"
 #endif
 
-// for PSRAM/SPIRAM detection support
+// for SPIRAM detection support
 #ifdef CONFIG_IDF_CMAKE // IDF 4+
-  #if __has_include("esp_psram.h") // IDF 5+, all devices
-    #include "esp_psram.h"
-    static int esp_spiram_init(void) { esp_psram_init(); return esp_psram_is_initialized()?ESP_OK:-1; }
-  #else
-    #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
-      #include "esp32/spiram.h"
-    #elif CONFIG_IDF_TARGET_ESP32S2
-      #include "esp32s2/spiram.h"
-      #include "esp32s2/rom/cache.h"
-    #elif CONFIG_IDF_TARGET_ESP32S3
-      #include "esp32s3/spiram.h"
-      #include "esp32s3/rom/cache.h"
-    #else
-      #error Target CONFIG_IDF_TARGET is not supported
-    #endif
-
+  #if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
+    #include "esp32/spiram.h"
+  #elif CONFIG_IDF_TARGET_ESP32S2
+    #include "esp32s2/spiram.h"
+    #include "esp32s2/rom/cache.h"
+  #elif CONFIG_IDF_TARGET_ESP32S3
+    #include "esp32s3/spiram.h"
+    #include "esp32s3/rom/cache.h"
+  #else // CONFIG_IDF_TARGET_ESP32P4
+    // psram mapping is seamless on P4, no need to load external spiram component
+    #undef BOARD_HAS_PSRAM
   #endif
 #else // ESP32 Before IDF 4.0
   #include "esp_spiram.h"
@@ -74,6 +69,8 @@
 #include "pfs.h"
 #include "esp_vfs.h"
 
+// ESP_LOG* functions always whining about signedness :(
+#pragma GCC diagnostic ignored "-Wformat"
 
 // for debug
 static const char TAG[] = "esp_psramfs";
@@ -658,6 +655,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
           }
           pfs_files[file_id]->index = 0;
           pfs_files[file_id]->size  = 0;
+          pfs_files[file_id]->memsize = 0;
         break;
         case 'r':
           ESP_LOGV(TAG, "Read (mode=%s)", mode);
