@@ -655,6 +655,7 @@ pfs_file_t* pfs_fopen( const char * path, int flags, int fmode )
           }
           pfs_files[file_id]->index = 0;
           pfs_files[file_id]->size  = 0;
+          pfs_files[file_id]->memsize = 0;
         break;
         case 'r':
           ESP_LOGV(TAG, "Read (mode=%s)", mode);
