@@ -104,11 +104,11 @@ jobs:
           source ~/esp/esp-idf/export.sh
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
-          project_dir=${{ needs.set_matrix.outputs.project_dir }}
+          project_dir="${{ needs.set_matrix.outputs.project_dir }}"
           mkdir $project_dir/components
-          ln -s . $project_dir/components/ESP32-PsRamFS
+          cp -R ../ESP32-PsRamFS $project_dir/components/
           cd $project_dir
-          ls components/ESP32-PsRamFS -la
+          ls components/ESP32-PsRamFS/ -la
           idf.py set-target $idf_board
           idf.py build
 
