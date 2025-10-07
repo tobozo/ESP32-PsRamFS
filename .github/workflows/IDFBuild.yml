@@ -100,11 +100,30 @@ jobs:
           if [ ! -d "~/.espressif" ]; then ./install.sh; fi
 
       - name: Build example for ${{ matrix.esp-idf-fqbn }}
+        id: idfbuild
         run: |
           source ~/esp/esp-idf/export.sh
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
           cd ${{ needs.set_matrix.outputs.project_dir }}
           idf.py set-target $idf_board
-          idf.py build
+          idf.py build merge-bin
+          [[ -f "build/merged-binary.bin" ]] || exit 1
+          echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
+
+      - name: Run ESP32 project in QEmu
+        uses: tobozo/esp32-qemu-sim@main
+        with:
+          debug: true
+          chip: ${{ steps.idfbuild.outputs.idf_board}}
+          psram: 2M
+          flash-image: build/merged-binary.bin
+          # build-folder: test/build
+          # partitions-csv: partitions.csv
+          # firmware-bin: test.ino.bin
+          # bootloader-bin: test.ino.bootloader.bin
+          # partitions-bin: test.ino.partitions.bin
+          # spiffs-bin: test.ino.spiffs.bin
+          timeout-interrupt-regex: "Test Complete"
+
 
