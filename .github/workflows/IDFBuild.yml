@@ -117,7 +117,7 @@ jobs:
           debug: true
           chip: ${{ steps.idfbuild.outputs.idf_board}}
           psram: 2M
-          flash-image: build/merged-binary.bin
+          flash-image: ${{ needs.set_matrix.outputs.project_dir }}/build/merged-binary.bin
           # build-folder: test/build
           # partitions-csv: partitions.csv
           # firmware-bin: test.ino.bin
