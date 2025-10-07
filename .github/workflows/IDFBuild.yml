@@ -87,7 +87,7 @@ jobs:
           idf.py build merge-bin
           ls build/ -la
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
-          if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else || echo "qemu=false" >> $GITHUB_OUTPUT; fi
+          if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else echo "qemu=false" >> $GITHUB_OUTPUT; fi
 
       - name: Run ESP32 project in QEmu
         if: steps.idfbuild.outputs.qemu == 'true'
