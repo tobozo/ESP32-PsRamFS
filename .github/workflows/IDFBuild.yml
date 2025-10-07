@@ -82,9 +82,10 @@ jobs:
           source ~/esp/esp-idf/export.sh
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
+          merge_bin=`idf.py --help | grep merge | grep bin | xargs`
           cd ${{ needs.set_matrix.outputs.project_dir }}
           idf.py set-target $idf_board
-          idf.py build merge-bin
+          idf.py build $merge_bin
           ls build/ -la
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
           if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else echo "qemu=false" >> $GITHUB_OUTPUT; fi
