@@ -1,2 +1,8 @@
-idf_component_register(SRCS "src/pfs.c" INCLUDE_DIRS "src" PRIV_REQUIRES esp_psram vfs)
-#target_compile_definitions(${COMPONENT_LIB} PUBLIC "-DLOG_LOCAL_LEVEL=ESP_LOG_VERBOSE")
+
+set (PFS_ROOT ${CMAKE_CURRENT_LIST_DIR})
+
+file(GLOB SRCS ${PFS_ROOT}/src/pfs.c)
+set(COMPONENT_SRCS ${SRCS})
+set(COMPONENT_ADD_INCLUDEDIRS ${PFS_ROOT}/src)
+set(COMPONENT_PRIV_REQUIRES esp_psram vfs)
+register_component()
