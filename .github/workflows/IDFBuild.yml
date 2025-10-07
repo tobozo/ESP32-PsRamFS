@@ -66,29 +66,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      # - name: Cache pip for ${{ matrix.esp-idf-fqbn }}
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ~/.cache/pip
-      #     key: ${{ runner.os }}-pip-${{ matrix.esp-idf-fqbn }}-${{ hashFiles('**/requirements.txt') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-pip-
-      #
-      # - name: Cache espressif tools for ${{ matrix.esp-idf-fqbn }}
-      #   uses: actions/cache@v3
-      #   id: espressif
-      #   with:
-      #     path: |
-      #       ~/.espressif
-      #     key: ${{ runner.os }}-espressif-${{ matrix.esp-idf-fqbn }}-${{ hashFiles('**/lockfiles') }}
-      #
-      # - name: Cache esp-idf for ${{ matrix.esp-idf-fqbn }}
-      #   id: cache-idf
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ~/esp/esp-idf
-      #     key: ${{ runner.os }}-idf-${{ matrix.esp-idf-fqbn }}-${{ hashFiles('**/lockfiles') }}
-
       - name: Get/Check IDF ${{ matrix.esp-idf-fqbn }}
         run: |
           mkdir -p ~/esp
@@ -109,9 +86,8 @@ jobs:
           idf.py set-target $idf_board
           idf.py build merge-bin
           ls build/ -la
-        # [[ -f "build/merged-binary.bin" ]] || exit 1
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
-          [[ $idf_board =~ ^esp32(c3|s3)?$ ]] && echo "qemu=true" >> $GITHUB_OUTPUT || echo "qemu=false" >> $GITHUB_OUTPUT
+          if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else || echo "qemu=false" >> $GITHUB_OUTPUT; fi
 
       - name: Run ESP32 project in QEmu
         if: steps.idfbuild.outputs.qemu == 'true'
