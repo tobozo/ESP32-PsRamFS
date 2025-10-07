@@ -87,6 +87,7 @@ jobs:
           idf.py set-target $idf_board
           idf.py build $merge_bin
           ls build/ -la
+          [[ -f "build/merged-binary.bin" ]] || idf_board=none
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
           if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else echo "qemu=false" >> $GITHUB_OUTPUT; fi
 
