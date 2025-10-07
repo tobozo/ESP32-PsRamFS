@@ -82,14 +82,12 @@ jobs:
           source ~/esp/esp-idf/export.sh
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
-          idf.py --help
-          merge_bin=`idf.py --help | grep merge | grep bin | xargs`
-          echo "[INFO] merge-bin arg: $merge_bin"
           cd ${{ needs.set_matrix.outputs.project_dir }}
           idf.py set-target $idf_board
+          merge_bin=`idf.py --help | grep merge | grep bin | xargs`
           idf.py build $merge_bin
           ls build/ -la
-          [[ -f "build/merged-binary.bin" ]] || idf_board=none
+          [[ -f "build/merged-binary.bin" ]] || echo "qemu=false" >> $GITHUB_OUTPUT && exit 0
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
           if [[ "$idf_board" =~ ^esp32(c3|s3)?$ ]]; then echo "qemu=true" >> $GITHUB_OUTPUT; else echo "qemu=false" >> $GITHUB_OUTPUT; fi
 
