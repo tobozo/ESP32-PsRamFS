@@ -82,7 +82,9 @@ jobs:
           source ~/esp/esp-idf/export.sh
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
+          idf.py --help
           merge_bin=`idf.py --help | grep merge | grep bin | xargs`
+          echo "[INFO] merge-bin arg: $merge_bin"
           cd ${{ needs.set_matrix.outputs.project_dir }}
           idf.py set-target $idf_board
           idf.py build $merge_bin
