@@ -107,6 +107,7 @@ jobs:
           cd ${{ needs.set_matrix.outputs.project_dir }}
           mkdir components
           ln -s $GITHUB_WORKSPACE/ESP32-PsRamFS components/ESP32-PsRamFS
+          ls components/ESP32-PsRamFS -la
           idf.py set-target $idf_board
           idf.py build
 
