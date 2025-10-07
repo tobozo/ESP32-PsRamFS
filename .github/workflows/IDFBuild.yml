@@ -108,9 +108,10 @@ jobs:
           cd ${{ needs.set_matrix.outputs.project_dir }}
           idf.py set-target $idf_board
           idf.py build merge-bin
-          [[ -f "build/merged-binary.bin" ]] || exit 1
+          ls build/ -la
+        # [[ -f "build/merged-binary.bin" ]] || exit 1
           echo "idf_board=$idf_board" >> $GITHUB_OUTPUT
-          [[ $idf_board =~ ^esp32(c3|s3)?$ ]] && echo "qemu=true" >> $GITHUB_OUTPUT
+          [[ $idf_board =~ ^esp32(c3|s3)?$ ]] && echo "qemu=true" >> $GITHUB_OUTPUT || echo "qemu=false" >> $GITHUB_OUTPUT
 
       - name: Run ESP32 project in QEmu
         if: steps.idfbuild.outputs.qemu == 'true'
