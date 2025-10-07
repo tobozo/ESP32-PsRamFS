@@ -106,7 +106,7 @@ jobs:
           idf_board=${idf_fqbn%%@*}
           project_dir="${{ needs.set_matrix.outputs.project_dir }}"
           mkdir $project_dir/components
-          cp -R ../ESP32-PsRamFS $project_dir/components/
+          ln -s ../ESP32-PsRamFS $project_dir/components/ESP32-PsRamFS
           cd $project_dir
           ls components/ESP32-PsRamFS/ -la
           idf.py set-target $idf_board
