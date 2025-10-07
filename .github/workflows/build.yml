@@ -1,15 +1,15 @@
 
 
-- arduino build
-  - sdk-version: latest
-  - arduino-board-fqbn
-  - required-libraries
-  - sketch-path
-- platformio build
-  - pioarduino-version:
-  - env-name
-  - project-path
-- esp-idf build
-  - idf-version
-  - target-chip
-  - project-path
+# - arduino build
+#   - sdk-version: latest
+#   - arduino-board-fqbn
+#   - required-libraries
+#   - sketch-path
+# - platformio build
+#   - pioarduino-version:
+#   - env-name
+#   - project-path
+# - esp-idf build
+#   - idf-version
+#   - target-chip
+#   - project-path

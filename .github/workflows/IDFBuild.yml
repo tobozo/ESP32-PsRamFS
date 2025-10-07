@@ -105,6 +105,8 @@ jobs:
           idf_fqbn="${{ matrix.esp-idf-fqbn }}"
           idf_board=${idf_fqbn%%@*}
           cd ${{ needs.set_matrix.outputs.project_dir }}
+          mkdir components
+          ln -s $GITHUB_WORKSPACE/ESP32-PsRamFS components/ESP32-PsRamFS
           idf.py set-target $idf_board
           idf.py build
 
