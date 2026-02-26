@@ -712,7 +712,13 @@ pfs_file_t *pfs_fopen(const char *path, int flags, int fmode) {
       free(pfs_files[fileslot]->name);
     }
     int pathlen = strlen(path);
+
     pfs_files[fileslot]->name = (char *)pfs_malloc(pathlen + 1);
+    if (pfs_files[fileslot]->name == NULL) {
+      ESP_LOGE(TAG, "alloc fail!");
+      return NULL;
+    }
+  
     memcpy(pfs_files[fileslot]->name, path, pathlen + 1);
     pfs_files[fileslot]->index = 0; // default truncate
     pfs_files[fileslot]->size = 0;
@@ -1052,6 +1058,10 @@ int pfs_rename(const char *from, const char *to) {
     ESP_LOGD(TAG, "Renaming file #%d from '%s' to '%s'", file_id, from, to);
     free(pfs_files[file_id]->name);
     pfs_files[file_id]->name = (char *)pfs_malloc(strlen(to) + 1);
+    if (pfs_files[file_id]->name == NULL) {
+      ESP_LOGE(TAG, "alloc fail!");
+      return -1;
+    }
     memcpy(pfs_files[file_id]->name, to, strlen(to) + 1);
     return 0;
   }
@@ -1067,6 +1077,10 @@ int pfs_rename(const char *from, const char *to) {
     pfs_dir_t *dir = pfs_dirs[dir_id];
     free(dir->name);
     dir->name = (char *)pfs_malloc(strlen(to) + 1);
+    if (dir->name == NULL) {
+      ESP_LOGE(TAG, "alloc fail!");
+      return -1;
+    }
     memcpy(dir->name, to, strlen(to) + 1);
 
     for (int i = 0; i < dir->parent_dir->itemscount; i++) {
