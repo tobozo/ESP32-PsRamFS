@@ -760,7 +760,7 @@ size_t pfs_fread(uint8_t *buf, size_t size, size_t count, pfs_file_t *stream) {
   // Integer overflow protection
   if ((0 < size) && (count > SIZE_MAX / size)) {
     ESP_LOGE(TAG, "Integer overflow: size * count would exceed SIZE_MAX");
-    return -1;
+    return 0;
   }
 
   to_read = size * count;
@@ -774,7 +774,7 @@ size_t pfs_fread(uint8_t *buf, size_t size, size_t count, pfs_file_t *stream) {
       ESP_LOGE(TAG,
                "Attempted to read %d out of bounds bytes at index %d of %d",
                to_read, stream->index, stream->size);
-      return -1;
+      return 0;
     }
   }
   memcpy(buf, &stream->bytes[stream->index], to_read);
