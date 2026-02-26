@@ -275,7 +275,7 @@ int pfs_mkdirp(const char *from_filename) {
     ESP_LOGE(TAG, "Cowardly refusing to create root path");
     return 0;
   }
-  char *tmp_path = (char *)pfs_calloc(pathlen, sizeof(char));
+  char *tmp_path = (char *)pfs_calloc(pathlen + 1, sizeof(char));
   if (tmp_path == NULL) {
     ESP_LOGE(
         TAG,
@@ -283,7 +283,7 @@ int pfs_mkdirp(const char *from_filename) {
         pathlen, from_filename);
     return -1;
   }
-  snprintf(tmp_path, pathlen, "%s", from_filename);
+  snprintf(tmp_path, pathlen + 1, "%s", from_filename);
 
   for (size_t i = 0; i < pathlen; i++) {
     if (!isprint((int)from_filename[i]) != 0) {
