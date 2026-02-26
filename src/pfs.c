@@ -749,7 +749,15 @@ pfs_file_t *pfs_fopen(const char *path, int flags, int fmode) {
 }
 
 size_t pfs_fread(uint8_t *buf, size_t size, size_t count, pfs_file_t *stream) {
-  size_t to_read = size * count;
+  size_t to_read;
+
+  // Integer overflow protection
+  if ((0 < size) && (count > SIZE_MAX / size)) {
+    ESP_LOGE(TAG, "Integer overflow: size * count would exceed SIZE_MAX");
+    return -1;
+  }
+
+  to_read = size * count;
 
   if ((stream->index + to_read) >= stream->size) {
     if (stream->index <= stream->size) {
@@ -779,7 +787,15 @@ size_t pfs_fread(uint8_t *buf, size_t size, size_t count, pfs_file_t *stream) {
 
 size_t pfs_fwrite(const uint8_t *buf, size_t size, size_t count,
                   pfs_file_t *stream) {
-  size_t to_write = size * count;
+  size_t to_write;
+
+  // Integer overflow protection
+  if ((0 < size) && (count > SIZE_MAX / size)) {
+    ESP_LOGE(TAG, "Integer overflow: size * count would exceed SIZE_MAX");
+    return -1;
+  }
+
+  to_write = size * count;
 
   if (stream->index + to_write >= stream->memsize) {
 
