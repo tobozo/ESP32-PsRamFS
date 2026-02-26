@@ -1334,18 +1334,30 @@ int vfs_pfs_fopen(const char *path, int flags, int mode) {
 ssize_t vfs_pfs_read(int fd, void *dst, size_t size) {
   if (pfs_files[fd] == NULL)
     return 0;
+  if ((0 > fd) || (fd >= pfs_max_items)) {
+    ESP_LOGE(TAG, "Invalid file descriptor: %d", fd);
+    return -1;
+  }
   return pfs_fread(dst, size, 1, pfs_files[fd]);
 }
 
 ssize_t vfs_pfs_write(int fd, const void *data, size_t size) {
   if (pfs_files[fd] == NULL)
     return 0;
+  if ((0 > fd) || (fd >= pfs_max_items)) {
+    ESP_LOGE(TAG, "Invalid file descriptor: %d", fd);
+    return -1;
+  }
   return pfs_fwrite(data, size, 1, pfs_files[fd]);
 }
 
 int vfs_pfs_close(int fd) {
   if (pfs_files[fd] == NULL)
     return -1;
+  if ((0 > fd) || (fd >= pfs_max_items)) {
+    ESP_LOGE(TAG, "Invalid file descriptor: %d", fd);
+    return -1;
+  }
   pfs_fclose(pfs_files[fd]);
   return 0;
 }
@@ -1359,6 +1371,10 @@ int vfs_pfs_fstat(int fd, struct stat *st) {
   assert(st);
   if (pfs_files[fd] == NULL) {
     ESP_LOGE(TAG, "Invalid file descriptor (%d)", fd);
+    return -1;
+  }
+  if ((0 > fd) || (fd >= pfs_max_items)) {
+    ESP_LOGE(TAG, "Invalid file descriptor: %d", fd);
     return -1;
   }
   struct stat s;
@@ -1379,9 +1395,12 @@ int vfs_pfs_stat(const char *path, struct stat *st) {
 }
 
 off_t vfs_pfs_lseek(int fd, off_t offset, int mode) {
-
   if (pfs_files[fd] == NULL)
     return -1;
+  if ((0 > fd) || (fd >= pfs_max_items)) {
+    ESP_LOGE(TAG, "Invalid file descriptor: %d", fd);
+    return -1;
+  }
   if (pfs_fseek(pfs_files[fd], offset, mode) == 0)
     return offset;
   return -1;
